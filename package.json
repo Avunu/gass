@@ -1,12 +1,13 @@
 {
 	"description": "Google Sheets / Apps Script Framework",
-	"type": "module",
-	"name": "gass",
-	"repository": "Avunu/gass",
+	"license": "MIT",
 	"main": "index.js",
+	"name": "gass",
 	"private": false,
+	"repository": "Avunu/gass",
 	"scripts": {
 		"build": "rolldown --config rollup.config.js"
 	},
-	"license": "MIT"
+	"type": "module",
+	"version": "0.0.1"
 }
