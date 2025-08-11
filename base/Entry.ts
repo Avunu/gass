@@ -1,0 +1,412 @@
+import { FilterCriteria, SheetService, SheetValue } from "../services/SheetService";
+import { ScheduledJob } from "../types/jobs";
+import { CacheManager } from "./cacheManager";
+import { MenuItem } from "./EntryRegistry";
+
+export interface IEntryMeta {
+  sheetId: number;
+  columns: string[];
+  headerRow: number;
+  dataStartColumn: number;
+  dataEndColumn: number;
+  defaultSort?: {
+    column: string;
+    ascending: boolean;
+  }[];
+  filterRow?: number;
+  filterRange?: {
+    startColumn: number;
+    endColumn: number;
+  };
+  clearFiltersCell?: {
+    row: number;
+    column: number;
+  };
+}
+
+export type ValidationResult = {
+  isValid: boolean;
+  errors: string[];
+};
+
+export abstract class Entry {
+  protected static _meta: IEntryMeta;
+  protected static _instances: Map<string, Entry> = new Map();
+
+  protected _isDirty: boolean = false;
+  protected _isNew: boolean = true;
+  protected _row: number = 0;
+
+  // Add static cache for column indices
+  private static _columnIndices: { [key: string]: { [col: string]: number } } = {};
+
+  static _cacheManager = new CacheManager();
+  static readonly CACHE_TIMEOUT = 3600; // 1 hour
+
+  // Add index signature to allow string indexing on derived classes
+  [key: string]: SheetValue | unknown;
+
+  public constructor() {}
+
+  // Update createInstance to ensure it's called only on concrete classes
+  protected static createInstance<T extends Entry>(this: new () => T): T {
+    return new this();
+  }
+
+  // Update the static method signatures to include static members in the constraint
+  static async get<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
+    filters: FilterCriteria,
+  ): Promise<T[]> {
+    const cachedMatches = Array.from(this._instances.values()).filter((entry) =>
+      Object.entries(filters).every(([key, value]) =>
+        SheetService.evaluateFilter(entry[key] as SheetValue, value),
+      ),
+    );
+
+    if (cachedMatches.length > 0) {
+      return cachedMatches as T[];
+    }
+
+    // Only pass the primary sort column if it exists
+    const primarySort = this._meta.defaultSort?.[0];
+    const sortInfo = primarySort
+      ? {
+          columnIndex: this._meta.columns.indexOf(primarySort.column),
+          ascending: primarySort.ascending,
+        }
+      : undefined;
+
+    const rows = await SheetService.getFilteredRows(
+      this._meta.sheetId,
+      this._meta.headerRow,
+      filters,
+      this._meta.columns,
+      sortInfo ? { sortInfo } : undefined,
+    );
+
+    return rows.map((row) => {
+      const entry = new this();
+      entry.fromRow(row.data, row.rowNumber);
+      this._instances.set(entry.getCacheKey(), entry);
+      return entry;
+    });
+  }
+
+  static async getValue<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+    filters: FilterCriteria,
+    column: string,
+  ): Promise<SheetValue> {
+    const sheet = SheetService.getSheet(this._meta.sheetId);
+
+    // Get column index directly from meta.columns
+    const columnIndex = this._meta.columns.indexOf(column);
+    if (columnIndex === -1) {
+      throw new Error(`Column not found: ${column}`);
+    }
+
+    // Map filter keys to their column indices from meta.columns
+    const filterIndices = Object.entries(filters).map(([key, value]) => ({
+      key,
+      index: this._meta.columns.indexOf(key),
+      value,
+    }));
+
+    const invalidFilters = filterIndices.filter((f) => f.index === -1);
+    if (invalidFilters.length > 0) {
+      throw new Error(`Columns not found: ${invalidFilters.map((f) => f.key).join(", ")}`);
+    }
+
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+
+    // Skip header row in search
+    for (let i = this._meta.headerRow; i < values.length; i++) {
+      const row = values[i];
+      if (filterIndices.every((f) => row[f.index] === f.value)) {
+        return row[columnIndex];
+      }
+    }
+
+    return null;
+  }
+
+  static async getAll<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
+  ): Promise<T[]> {
+    const rows = await SheetService.getAllRows(this._meta.sheetId);
+    return rows.map((row) => {
+      const entry = new this();
+      entry.fromRow(row.data, row.rowNumber);
+      this._instances.set(entry.getCacheKey(), entry);
+      return entry;
+    });
+  }
+
+  abstract getCacheKey(): string;
+  abstract validate(): ValidationResult;
+
+  protected beforeSave(): void {}
+  protected afterSave(): void {}
+  protected beforeUpdate(): void {}
+  protected afterUpdate(): void {}
+  protected beforeDelete(): void {}
+  protected afterDelete(): void {}
+
+  public markDirty(): void {
+    this._isDirty = true;
+  }
+
+  async save(): Promise<void> {
+    if (!this._isDirty) return;
+
+    const validation = this.validate();
+    if (!validation.isValid) {
+      const errorMessage = validation.errors.join(", ");
+      SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Validation Error", -1);
+      throw new Error(`Validation failed: ${errorMessage}`);
+    }
+
+    const EntryClass = this.constructor as (new () => Entry) & {
+      _meta: IEntryMeta;
+      sort(orders: { column: number; ascending: boolean }[]): void;
+    };
+
+    if (this._isNew) {
+      await this.beforeSave();
+      // Save the row with any changes made during beforeSave
+      await SheetService.appendRow(EntryClass._meta.sheetId, this.toRow());
+      await this.afterSave();
+    } else {
+      await this.beforeUpdate();
+      // Allow beforeUpdate to modify values before saving
+      await this.beforeSave();
+      // Save the row with any changes made during hooks
+      await SheetService.updateRow(EntryClass._meta.sheetId, this._row, this.toRow());
+      await this.afterUpdate();
+      await this.afterSave();
+    }
+
+    const meta = EntryClass._meta;
+    if (meta.defaultSort) {
+      EntryClass.sort(
+        meta.defaultSort.map((sort) => ({
+          column: meta.columns.indexOf(sort.column) + 1,
+          ascending: sort.ascending,
+        })),
+      );
+    }
+
+    this._isDirty = false;
+  }
+
+  async delete(): Promise<void> {
+    if (this._isNew) return;
+
+    await this.beforeDelete();
+    await SheetService.deleteRow((this.constructor as typeof Entry)._meta.sheetId, this._row);
+    (this.constructor as typeof Entry as typeof Entry)._instances.delete(this.getCacheKey());
+    await this.afterDelete();
+  }
+
+  protected toRow(): SheetValue[] {
+    const meta = (this.constructor as typeof Entry)._meta;
+
+    // map data in order of columns array
+    return meta.columns.map((col) => {
+      if (!(col in this)) {
+        throw new Error(`Property not found in object: ${col}`);
+      }
+      return this[col] as SheetValue;
+    });
+  }
+
+  public fromRow(rowData: SheetValue[], rowNumber: number): void {
+    const meta = (this.constructor as typeof Entry)._meta;
+
+    // Validate we have enough columns
+    if (rowData.length < meta.columns.length) {
+      throw new Error(`Row data has ${rowData.length} columns but expected ${meta.columns.length}`);
+    }
+
+    // Map data positionally
+    meta.columns.forEach((col, index) => {
+      this[col] = rowData[index];
+    });
+
+    this._row = rowNumber;
+    this._isNew = false;
+    this._isDirty = false;
+  }
+
+  protected static getColumnIndices(sheet: GoogleAppsScript.Spreadsheet.Sheet): { [key: string]: number } {
+    const sheetId = sheet.getSheetId();
+
+    // Return cached indices if available
+    if (this._columnIndices[sheetId]) {
+      return this._columnIndices[sheetId];
+    }
+
+    const indices = this._meta.columns.reduce((acc: { [key: string]: number }, col: string, index) => {
+      acc[col] = index + this._meta.dataStartColumn;
+      return acc;
+    }, {});
+
+    // Cache the indices
+    this._columnIndices[sheetId] = indices;
+    return indices;
+  }
+
+  // Add batch save functionality
+  static async batchSave<T extends Entry>(entries: T[]): Promise<void> {
+    const dirtyEntries = entries.filter((entry) => entry._isDirty);
+    if (dirtyEntries.length === 0) return;
+
+    const newEntries = dirtyEntries.filter((entry) => entry._isNew);
+    const existingEntries = dirtyEntries.filter((entry) => !entry._isNew);
+
+    // Handle new entries in batch
+    if (newEntries.length > 0) {
+      const newRows = newEntries.map((entry) => entry.toRow());
+      await SheetService.appendRows(this._meta.sheetId, newRows);
+    }
+
+    // Handle updates in batch
+    if (existingEntries.length > 0) {
+      const updates = existingEntries.map((entry) => ({
+        row: entry._row,
+        values: entry.toRow(),
+      }));
+      await SheetService.updateRows(this._meta.sheetId, updates);
+    }
+
+    // Mark all entries as clean
+    dirtyEntries.forEach((entry) => {
+      entry._isDirty = false;
+      entry._isNew = false;
+    });
+  }
+
+  /**
+   * Apply filter to the sheet
+   */
+  static applyFilter<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+    criteria: GoogleAppsScript.Spreadsheet.FilterCriteria,
+    column: number,
+  ): void {
+    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const range = sheet.getRange(
+      this._meta.headerRow,
+      this._meta.dataStartColumn,
+      sheet.getLastRow() - this._meta.headerRow,
+      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+    );
+
+    const filter = sheet.getFilter();
+    if (filter) {
+      filter.setColumnFilterCriteria(column, criteria);
+    } else {
+      range.createFilter().setColumnFilterCriteria(column, criteria);
+    }
+  }
+
+  /**
+   * Sort the sheet based on provided sort orders
+   */
+  static sort<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+    sortOrders: { column: number; ascending: boolean }[],
+  ): void {
+    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const lastRow = sheet.getLastRow();
+    const numRows = Math.max(1, lastRow - this._meta.headerRow);
+
+    const range = sheet.getRange(
+      this._meta.headerRow + 1,
+      this._meta.dataStartColumn,
+      numRows,
+      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+    );
+
+    range.sort(sortOrders);
+  }
+
+  /**
+   * Clear all filters from the sheet
+   */
+  static clearFilters<T extends Entry>(this: (new () => T) & { _meta: IEntryMeta }): void {
+    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const filter = sheet.getFilter();
+    if (filter) {
+      filter.remove();
+    }
+  }
+
+  /**
+   * Apply smart filters based on filter row values
+   */
+  static applySmartFilters<T extends Entry>(
+    this: (new () => T) & {
+      _meta: IEntryMeta;
+      clearFilters(): void;
+    },
+  ): void {
+    const meta = this._meta;
+    if (!meta.filterRow || !meta.filterRange) return;
+
+    const sheet = SheetService.getSheet(meta.sheetId);
+    const filterRange = sheet.getRange(
+      meta.filterRow,
+      meta.filterRange.startColumn,
+      1,
+      meta.filterRange.endColumn - meta.filterRange.startColumn + 1,
+    );
+
+    // Check if we should clear filters
+    if (meta.clearFiltersCell) {
+      const clearValue = sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).getValue();
+      if (clearValue === true) {
+        this.clearFilters();
+        // Reset the clear checkbox
+        sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).setValue(false);
+        // clear the filter range values
+        filterRange.clearContent();
+        return;
+      }
+    }
+
+    // Get filter row values
+    const filterValues = filterRange.getValues()[0];
+
+    // Create or update filter
+    const range = sheet.getRange(
+      meta.headerRow,
+      meta.dataStartColumn,
+      Math.max(1, sheet.getLastRow() - (meta.headerRow + 1) + 1),
+      meta.dataEndColumn - meta.dataStartColumn + 1,
+    );
+
+    const filter = sheet.getFilter() || range.createFilter();
+
+    // Apply filter for each non-empty filter value
+    filterValues.forEach((value, index) => {
+      if (value) {
+        const column = meta.filterRange!.startColumn + index;
+        const criteria = SpreadsheetApp.newFilterCriteria()
+          .whenTextContains(value.toString())
+          .setHiddenValues([""])
+          .build();
+        filter.setColumnFilterCriteria(column, criteria);
+      }
+    });
+  }
+
+  static getScheduledJobs?(): ScheduledJob[];
+
+  // Add the static method to the base class
+  static getMenuItems(): MenuItem[] {
+    return [];
+  }
+}
