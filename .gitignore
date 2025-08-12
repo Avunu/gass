@@ -1,3 +1,6 @@
 node_modules
 build
 Code.js
+tsconfig.json
+test-external-entry.ts
+backup/

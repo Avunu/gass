@@ -50,6 +50,156 @@ export class SheetService {
     return sheet;
   }
 
+  /**
+   * Check if the entry is using an external spreadsheet
+   */
+  static isExternalEntry(sheetId: number | string, spreadsheetId?: string): boolean {
+    return spreadsheetId !== undefined;
+  }
+
+  /**
+   * Generate A1 notation range for external sheets
+   */
+  static generateA1Range(
+    sheetName: string,
+    startRow: number,
+    startCol: number,
+    endRow?: number,
+    endCol?: number
+  ): string {
+    const startColA1 = this.columnNumberToA1(startCol);
+    const endColA1 = endCol ? this.columnNumberToA1(endCol) : '';
+    
+    let range = `${sheetName}!${startColA1}${startRow}`;
+    if (endRow || endCol) {
+      const endRowPart = endRow || '';
+      const endColPart = endColA1 || startColA1;
+      range += `:${endColPart}${endRowPart}`;
+    }
+    
+    return range;
+  }
+
+  /**
+   * Convert column number to A1 notation (1 = A, 2 = B, etc.)
+   */
+  static columnNumberToA1(columnNumber: number): string {
+    let result = '';
+    while (columnNumber > 0) {
+      columnNumber--;
+      result = String.fromCharCode(65 + (columnNumber % 26)) + result;
+      columnNumber = Math.floor(columnNumber / 26);
+    }
+    return result;
+  }
+
+  /**
+   * Get filtered rows from external spreadsheet
+   */
+  static async getExternalFilteredRows(
+    spreadsheetId: string,
+    sheetName: string,
+    headerRow: number,
+    filters: FilterCriteria,
+    columnMap: string[],
+    options?: FilterOptions,
+  ): Promise<RowResult[]> {
+    // First, use batchGet to get only the columns we need for filtering
+    const filterColumnIndices = Object.keys(filters).map(key => {
+      const index = columnMap.indexOf(key);
+      if (index === -1) {
+        throw new Error(`Column not found: ${key}`);
+      }
+      return { key, index };
+    });
+
+    // Get the filter columns first using batchGet
+    const ranges = filterColumnIndices.map(({ index }) => 
+      this.generateA1Range(sheetName, headerRow + 1, index + 1, undefined, undefined)
+    );
+
+    const batchResponse = Sheets.Spreadsheets!.Values!.batchGet(spreadsheetId, {
+      ranges: ranges
+    });
+
+    if (!batchResponse.valueRanges) {
+      return [];
+    }
+
+    // Process the filter data to find matching rows
+    const matchingRowNumbers: number[] = [];
+    const firstRangeValues = batchResponse.valueRanges[0]?.values || [];
+    
+    for (let i = 0; i < firstRangeValues.length; i++) {
+      let allFiltersMatch = true;
+      
+      // Check each filter condition
+      for (let filterIndex = 0; filterIndex < filterColumnIndices.length; filterIndex++) {
+        const { key } = filterColumnIndices[filterIndex];
+        const rangeValues = batchResponse.valueRanges[filterIndex]?.values || [];
+        const cellValue = rangeValues[i] ? rangeValues[i][0] : null;
+        const filterValue = filters[key];
+        
+        if (!this.evaluateFilter(this.convertFromSheet(cellValue), filterValue)) {
+          allFiltersMatch = false;
+          break;
+        }
+      }
+      
+      if (allFiltersMatch) {
+        matchingRowNumbers.push(headerRow + 1 + i); // Convert to 1-based row number
+      }
+    }
+
+    if (matchingRowNumbers.length === 0) {
+      return [];
+    }
+
+    // Now get the complete rows for the matches
+    const results: RowResult[] = [];
+    for (const rowNumber of matchingRowNumbers) {
+      const range = this.generateA1Range(
+        sheetName, 
+        rowNumber, 
+        1, 
+        rowNumber, 
+        columnMap.length
+      );
+      
+      const response = Sheets.Spreadsheets!.Values!.get(spreadsheetId, range);
+      if (response.values && response.values.length > 0) {
+        results.push({
+          data: response.values[0].map(cell => this.convertFromSheet(cell)),
+          rowNumber: rowNumber
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Get all rows from external spreadsheet
+   */
+  static async getExternalAllRows(
+    spreadsheetId: string,
+    sheetName: string,
+    headerRow: number,
+    columnCount: number
+  ): Promise<RowResult[]> {
+    const range = this.generateA1Range(sheetName, headerRow + 1, 1, undefined, columnCount);
+    
+    const response = Sheets.Spreadsheets!.Values!.get(spreadsheetId, range);
+    if (!response.values) {
+      return [];
+    }
+
+    return response.values.map((row, index) => ({
+      data: row.map(cell => this.convertFromSheet(cell)),
+      rowNumber: headerRow + 1 + index
+    }));
+  }
+
   private static getLastRowNumber(sheet: GoogleAppsScript.Spreadsheet.Sheet): number {
     // Get all values in first column
     const range = sheet.getRange("A:A");
@@ -441,7 +591,7 @@ export class SheetService {
 
     // Extract min/max from filter value
     if (filterValue === null || typeof filterValue !== "object") {
-      min = max = filterValue;
+      min = max = filterValue as SheetValue;
     } else if ("$eq" in filterValue && filterValue.$eq !== undefined) {
       min = max = filterValue.$eq;
     } else if ("$between" in filterValue && Array.isArray(filterValue.$between)) {
