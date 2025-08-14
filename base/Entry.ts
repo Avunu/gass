@@ -288,6 +288,81 @@ export abstract class Entry {
     });
   }
 
+  // Add batch insert functionality for plain data objects
+  static async batchInsert<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
+    dataObjects: Array<{ [key: string]: SheetValue }>,
+  ): Promise<T[]> {
+    if (dataObjects.length === 0) return [];
+
+    // Create Entry instances from data objects
+    const entries: T[] = [];
+    for (const data of dataObjects) {
+      const entry = new this();
+      
+      // Set properties from data object
+      this._meta.columns.forEach((column) => {
+        if (data.hasOwnProperty(column)) {
+          (entry as any)[column] = data[column];
+        }
+      });
+      
+      // Mark as new and dirty
+      entry._isNew = true;
+      entry._isDirty = true;
+      
+      entries.push(entry);
+    }
+
+    // Validate all entries first
+    const validationErrors: string[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const validation = entries[i].validate();
+      if (!validation.isValid) {
+        validationErrors.push(`Entry ${i + 1}: ${validation.errors.join(", ")}`);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      const errorMessage = `Batch validation failed: ${validationErrors.join("; ")}`;
+      throw new Error(errorMessage);
+    }
+
+    // Run beforeSave hooks asynchronously for all entries
+    await Promise.all(entries.map((entry) => entry.beforeSave()));
+
+    // Prepare rows for batch insert
+    const rows = entries.map((entry) => entry.toRow());
+
+    // Perform batch insert
+    await SheetService.appendRows(this._meta.sheetId, rows);
+
+    // Run afterSave hooks asynchronously for all entries
+    await Promise.all(entries.map((entry) => entry.afterSave()));
+
+    // Apply default sorting if configured
+    const meta = this._meta;
+    if (meta.defaultSort) {
+      this.sort(
+        meta.defaultSort.map((sort) => ({
+          column: meta.columns.indexOf(sort.column) + 1,
+          ascending: sort.ascending,
+        })),
+      );
+    }
+
+    // Mark all entries as clean and not new
+    entries.forEach((entry) => {
+      entry._isDirty = false;
+      entry._isNew = false;
+      
+      // Add to instance cache
+      this._instances.set(entry.getCacheKey(), entry);
+    });
+
+    return entries;
+  }
+
   /**
    * Apply filter to the sheet
    */
