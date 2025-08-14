@@ -9,6 +9,7 @@ This directory contains a Google App Script library that brings ORM / framework 
 - **Caching**: Built-in caching for improved performance
 - **Filtering**: Advanced filtering with operators ($gt, $lt, $between, etc.)
 - **Sorting**: Configurable default sorting
+- **Batch operations**: Efficient bulk insert and save operations with async hooks
 - **Services**: Pre-built services for Google Workspace integration
 - **Job scheduling**: Built-in job scheduling system
 - **Menu integration**: Automatic menu generation from entry types
@@ -126,8 +127,64 @@ newEntity.email = "john@example.com";
 newEntity.markDirty();
 await newEntity.save();
 
+// Batch insert multiple entities from plain data objects
+const newEntitiesData = [
+  { name: "Jane Smith", email: "jane@example.com", phone: "555-0123", status: "active" },
+  { name: "Bob Johnson", email: "bob@example.com", phone: "555-0456", status: "pending" },
+  { name: "Alice Brown", email: "alice@example.com", phone: "555-0789", status: "active" }
+];
+
+// This performs a single bulk insert operation with async hook execution
+const createdEntities = await MyEntity.batchInsert(newEntitiesData);
+console.log(`${createdEntities.length} entities created in batch operation`);
+
 // Handle sheet edits automatically
 async function onEdit(e: GoogleAppsScript.Events.SheetsOnEdit) {
   await EntryRegistry.handleEdit(e);
 }
 ```
+
+## Batch Operations
+
+For better performance when working with multiple records, use batch operations:
+
+### Batch Insert
+
+Insert multiple records from plain data objects in a single operation:
+
+```typescript
+// Instead of multiple individual saves:
+for (const data of recordsData) {
+  const entity = new MyEntity();
+  Object.assign(entity, data);
+  entity.markDirty();
+  await entity.save(); // Individual database calls
+}
+
+// Use batch insert for better performance:
+const createdEntities = await MyEntity.batchInsert(recordsData);
+// Single database call + async hook execution
+```
+
+### Batch Save
+
+Save multiple existing entities efficiently:
+
+```typescript
+const entities = await MyEntity.get({ status: "pending" });
+entities.forEach(entity => {
+  entity.status = "processed";
+  entity.markDirty();
+});
+
+// Batch save all changes
+await MyEntity.batchSave(entities);
+```
+
+### Benefits of Batch Operations
+
+- **Performance**: Single database operation vs. multiple calls
+- **Async hooks**: beforeSave/afterSave hooks run in parallel
+- **Validation**: All records validated before any database operation
+- **Atomicity**: All records processed together
+- **Error handling**: Detailed validation errors for the entire batch
