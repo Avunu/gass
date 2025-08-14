@@ -27,6 +27,7 @@ type EntryConstructor = {
   getAll(): Promise<Entry[]>;
   applySmartFilters(): void;
   batchSave(entries: Entry[]): Promise<void>;
+  batchInsert(dataObjects: Array<{ [key: string]: SheetValue }>): Promise<Entry[]>;
 };
 
 export class EntryRegistry {
