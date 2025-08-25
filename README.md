@@ -1,6 +1,7 @@
 # Google Sheets ORM Library
 
-This directory contains a Google App Script library that brings ORM / framework features to Google Apps Sheets.
+This directory contains a Google App Script library that brings ORM / framework features to Google Apps
+Sheets.
 
 ## Key Features
 
@@ -131,7 +132,7 @@ await newEntity.save();
 const newEntitiesData = [
   { name: "Jane Smith", email: "jane@example.com", phone: "555-0123", status: "active" },
   { name: "Bob Johnson", email: "bob@example.com", phone: "555-0456", status: "pending" },
-  { name: "Alice Brown", email: "alice@example.com", phone: "555-0789", status: "active" }
+  { name: "Alice Brown", email: "alice@example.com", phone: "555-0789", status: "active" },
 ];
 
 // This performs a single bulk insert operation with async hook execution
@@ -172,7 +173,7 @@ Save multiple existing entities efficiently:
 
 ```typescript
 const entities = await MyEntity.get({ status: "pending" });
-entities.forEach(entity => {
+entities.forEach((entity) => {
   entity.status = "processed";
   entity.markDirty();
 });

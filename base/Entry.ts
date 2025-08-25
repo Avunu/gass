@@ -46,7 +46,7 @@ export abstract class Entry {
   // Add index signature to allow string indexing on derived classes
   [key: string]: SheetValue | unknown;
 
-  public constructor() { }
+  public constructor() {}
 
   // Update createInstance to ensure it's called only on concrete classes
   protected static createInstance<T extends Entry>(this: new () => T): T {
@@ -72,9 +72,9 @@ export abstract class Entry {
     const primarySort = this._meta.defaultSort?.[0];
     const sortInfo = primarySort
       ? {
-        columnIndex: this._meta.columns.indexOf(primarySort.column),
-        ascending: primarySort.ascending,
-      }
+          columnIndex: this._meta.columns.indexOf(primarySort.column),
+          ascending: primarySort.ascending,
+        }
       : undefined;
 
     const rows = await SheetService.getFilteredRows(
@@ -147,12 +147,12 @@ export abstract class Entry {
   abstract getCacheKey(): string;
   abstract validate(): ValidationResult;
 
-  protected beforeSave(): void { }
-  protected afterSave(): void { }
-  protected beforeUpdate(): void { }
-  protected afterUpdate(): void { }
-  protected beforeDelete(): void { }
-  protected afterDelete(): void { }
+  protected beforeSave(): void {}
+  protected afterSave(): void {}
+  protected beforeUpdate(): void {}
+  protected afterUpdate(): void {}
+  protected beforeDelete(): void {}
+  protected afterDelete(): void {}
 
   public markDirty(): void {
     this._isDirty = true;
@@ -291,8 +291,9 @@ export abstract class Entry {
   // Add batch insert functionality for plain data objects
   static async batchInsert<T extends Entry>(
     this: (new () => T) & {
-      _meta: IEntryMeta; _instances: Map<string, Entry>;
-      sort(sortOrders: { column: number; ascending: boolean }[]): void
+      _meta: IEntryMeta;
+      _instances: Map<string, Entry>;
+      sort(sortOrders: { column: number; ascending: boolean }[]): void;
     },
     dataObjects: Array<{ [key: string]: SheetValue }>,
   ): Promise<T[]> {
