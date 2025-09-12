@@ -31,7 +31,7 @@ type EntryConstructor = {
 };
 
 export class EntryRegistry {
-  private static entryTypes: Map<number, EntryConstructor> = new Map();
+  private static entryTypes: Map<number | string, EntryConstructor> = new Map();
   private static initialized = false;
 
   /**
@@ -42,7 +42,11 @@ export class EntryRegistry {
 
     // Register all provided entry types
     entries.forEach((entryType) => {
-      this.entryTypes.set(entryType._meta.sheetId, entryType);
+      // For external entries, we create a unique key combining spreadsheetId and sheetId
+      const key = entryType._meta.spreadsheetId 
+        ? `${entryType._meta.spreadsheetId}:${entryType._meta.sheetId}`
+        : entryType._meta.sheetId;
+      this.entryTypes.set(key, entryType);
     });
 
     this.initialized = true;
@@ -63,11 +67,20 @@ export class EntryRegistry {
   }
 
   /**
-   * Get an entry type by its sheet ID
+   * Get an entry type by its sheet ID (works for both internal and external entries)
    */
   static getEntryTypeBySheetId(sheetId: number): EntryConstructor | undefined {
     this.ensureInitialized();
     return this.entryTypes.get(sheetId);
+  }
+
+  /**
+   * Get an entry type by external spreadsheet and sheet identifiers
+   */
+  static getEntryTypeByExternalId(spreadsheetId: string, sheetId: string): EntryConstructor | undefined {
+    this.ensureInitialized();
+    const key = `${spreadsheetId}:${sheetId}`;
+    return this.entryTypes.get(key);
   }
 
   /**
