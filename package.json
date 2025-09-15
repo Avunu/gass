@@ -10,12 +10,13 @@
     "url": "git+https://github.com/Avunu/gass.git"
   },
   "scripts": {
-    "build": "rolldown --config rollup.config.js"
+    "build": "rolldown --config rollup.config.js",
+    "upgrade": "npx npm-check-updates -u && npm install"
   },
   "type": "module",
   "version": "0.0.1",
   "devDependencies": {
-    "@types/google-apps-script": "^1.0.99",
-    "rolldown": "^1.0.0-beta.32"
+    "@types/google-apps-script": "^2",
+    "rolldown": "^1.0.0-beta.38"
   }
 }

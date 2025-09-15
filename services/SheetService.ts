@@ -98,7 +98,10 @@ export class SheetService {
   private static convertToSheet(value: SheetValue): SheetValue {
     // Convert JS Date objects to sheet-compatible format
     if (value instanceof Date) {
-      return value;
+      // Create a new date at midnight in the local timezone to avoid timezone shifts
+      // This ensures the date stays the same when saved to the sheet
+      const localDate = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      return localDate;
     }
     return value;
   }
@@ -148,6 +151,43 @@ export class SheetService {
   static async deleteRow(sheetId: number, rowNumber: number): Promise<void> {
     const sheet = this.getSheet(sheetId);
     sheet.deleteRow(rowNumber);
+  }
+
+  static async replaceAllValues(sheetId: number, newValues: any[][]): Promise<void> {
+    const sheet = this.getSheet(sheetId);
+    
+    if (newValues.length === 0) {
+      // Clear the sheet if no new values provided
+      sheet.clear();
+      return;
+    }
+
+    // Clear existing content first
+    const currentLastRow = sheet.getLastRow();
+    const currentLastColumn = sheet.getLastColumn();
+    
+    if (currentLastRow > 0 && currentLastColumn > 0) {
+      sheet.getRange(1, 1, currentLastRow, currentLastColumn).clear();
+    }
+
+    // Set new values
+    const numRows = newValues.length;
+    const numColumns = Math.max(...newValues.map(row => row.length));
+    
+    if (numRows > 0 && numColumns > 0) {
+      // Pad rows to ensure consistent column count
+      const paddedValues = newValues.map(row => {
+        const paddedRow = [...row];
+        while (paddedRow.length < numColumns) {
+          paddedRow.push("");
+        }
+        return paddedRow.map(value => this.convertToSheet(value));
+      });
+
+      const range = sheet.getRange(1, 1, numRows, numColumns);
+      range.setValues(paddedValues);
+    }
+    Logger.log(`Replaced all values in sheet ID ${sheetId} with ${newValues.length} rows.`);
   }
 
   static async sortSheet(sheetId: number, sortOrders: SortSpec[]): Promise<void> {
