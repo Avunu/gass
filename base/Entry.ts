@@ -4,7 +4,8 @@ import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
 
 export interface IEntryMeta {
-  sheetId: number;
+  sheetId: number | string; // number for internal sheets, string (sheet name) for external sheets
+  spreadsheetId?: string; // when present, indicates external spreadsheet
   columns: string[];
   headerRow: number;
   dataStartColumn: number;
@@ -55,10 +56,17 @@ export abstract class Entry {
 
   // Update the static method signatures to include static members in the constraint
   static async get<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
+    this: new () => T,
     filters: FilterCriteria,
   ): Promise<T[]> {
-    const cachedMatches = Array.from(this._instances.values()).filter((entry) =>
+    const EntryClass = this as any;
+    
+    // Check if this is an external entry
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      return EntryClass.getExternal(filters);
+    }
+
+    const cachedMatches = Array.from(EntryClass._instances.values()).filter((entry: Entry) =>
       Object.entries(filters).every(([key, value]) =>
         SheetService.evaluateFilter(entry[key] as SheetValue, value),
       ),
@@ -69,39 +77,77 @@ export abstract class Entry {
     }
 
     // Only pass the primary sort column if it exists
-    const primarySort = this._meta.defaultSort?.[0];
+    const primarySort = EntryClass._meta.defaultSort?.[0];
     const sortInfo = primarySort
       ? {
-          columnIndex: this._meta.columns.indexOf(primarySort.column),
+          columnIndex: EntryClass._meta.columns.indexOf(primarySort.column),
           ascending: primarySort.ascending,
         }
       : undefined;
 
     const rows = await SheetService.getFilteredRows(
-      this._meta.sheetId,
-      this._meta.headerRow,
+      EntryClass._meta.sheetId as number,
+      EntryClass._meta.headerRow,
       filters,
-      this._meta.columns,
+      EntryClass._meta.columns,
       sortInfo ? { sortInfo } : undefined,
     );
 
     return rows.map((row) => {
       const entry = new this();
       entry.fromRow(row.data, row.rowNumber);
-      this._instances.set(entry.getCacheKey(), entry);
+      EntryClass._instances.set(entry.getCacheKey(), entry);
+      return entry;
+    });
+  }
+
+  /**
+   * Get entries from external spreadsheet
+   */
+  static async getExternal<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+    filters: FilterCriteria,
+  ): Promise<T[]> {
+    if (!this._meta.spreadsheetId) {
+      throw new Error('External spreadsheet ID not specified');
+    }
+    
+    if (typeof this._meta.sheetId !== 'string') {
+      throw new Error('External entries must use string sheet name, not numeric sheet ID');
+    }
+
+    const rows = await SheetService.getExternalFilteredRows(
+      this._meta.spreadsheetId,
+      this._meta.sheetId,
+      this._meta.headerRow,
+      filters,
+      this._meta.columns,
+    );
+
+    return rows.map((row) => {
+      const entry = new this();
+      entry.fromRow(row.data, row.rowNumber);
+      entry._isNew = false; // External entries are never "new" - they're read-only
       return entry;
     });
   }
 
   static async getValue<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta },
+    this: new () => T,
     filters: FilterCriteria,
     column: string,
   ): Promise<SheetValue> {
-    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const EntryClass = this as any;
+    
+    // Check if this is an external entry
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      return EntryClass.getExternalValue(filters, column);
+    }
+
+    const sheet = SheetService.getSheet(EntryClass._meta.sheetId as number);
 
     // Get column index directly from meta.columns
-    const columnIndex = this._meta.columns.indexOf(column);
+    const columnIndex = EntryClass._meta.columns.indexOf(column);
     if (columnIndex === -1) {
       throw new Error(`Column not found: ${column}`);
     }
@@ -109,7 +155,7 @@ export abstract class Entry {
     // Map filter keys to their column indices from meta.columns
     const filterIndices = Object.entries(filters).map(([key, value]) => ({
       key,
-      index: this._meta.columns.indexOf(key),
+      index: EntryClass._meta.columns.indexOf(key),
       value,
     }));
 
@@ -122,7 +168,7 @@ export abstract class Entry {
     const values = dataRange.getValues();
 
     // Skip header row in search
-    for (let i = this._meta.headerRow; i < values.length; i++) {
+    for (let i = EntryClass._meta.headerRow; i < values.length; i++) {
       const row = values[i];
       if (filterIndices.every((f) => row[f.index] === f.value)) {
         return row[columnIndex];
@@ -132,14 +178,87 @@ export abstract class Entry {
     return null;
   }
 
+  /**
+   * Get a single value from external spreadsheet
+   */
+  static async getExternalValue<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+    filters: FilterCriteria,
+    column: string,
+  ): Promise<SheetValue> {
+    if (!this._meta.spreadsheetId) {
+      throw new Error('External spreadsheet ID not specified');
+    }
+    
+    if (typeof this._meta.sheetId !== 'string') {
+      throw new Error('External entries must use string sheet name, not numeric sheet ID');
+    }
+
+    // Get the first matching row
+    const rows = await SheetService.getExternalFilteredRows(
+      this._meta.spreadsheetId,
+      this._meta.sheetId,
+      this._meta.headerRow,
+      filters,
+      this._meta.columns,
+    );
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const columnIndex = this._meta.columns.indexOf(column);
+    if (columnIndex === -1) {
+      throw new Error(`Column not found: ${column}`);
+    }
+
+    return rows[0].data[columnIndex];
+  }
+
   static async getAll<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
+    this: new () => T,
   ): Promise<T[]> {
-    const rows = await SheetService.getAllRows(this._meta.sheetId);
+    const EntryClass = this as any;
+    
+    // Check if this is an external entry
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      return EntryClass.getAllExternal();
+    }
+
+    const rows = await SheetService.getAllRows(EntryClass._meta.sheetId as number);
     return rows.map((row) => {
       const entry = new this();
       entry.fromRow(row.data, row.rowNumber);
-      this._instances.set(entry.getCacheKey(), entry);
+      EntryClass._instances.set(entry.getCacheKey(), entry);
+      return entry;
+    });
+  }
+
+  /**
+   * Get all entries from external spreadsheet
+   */
+  static async getAllExternal<T extends Entry>(
+    this: (new () => T) & { _meta: IEntryMeta },
+  ): Promise<T[]> {
+    if (!this._meta.spreadsheetId) {
+      throw new Error('External spreadsheet ID not specified');
+    }
+    
+    if (typeof this._meta.sheetId !== 'string') {
+      throw new Error('External entries must use string sheet name, not numeric sheet ID');
+    }
+
+    const rows = await SheetService.getExternalAllRows(
+      this._meta.spreadsheetId,
+      this._meta.sheetId,
+      this._meta.headerRow,
+      this._meta.columns.length
+    );
+
+    return rows.map((row) => {
+      const entry = new this();
+      entry.fromRow(row.data, row.rowNumber);
+      entry._isNew = false; // External entries are never "new" - they're read-only
       return entry;
     });
   }
@@ -161,6 +280,16 @@ export abstract class Entry {
   async save(): Promise<void> {
     if (!this._isDirty) return;
 
+    const EntryClass = this.constructor as (new () => Entry) & {
+      _meta: IEntryMeta;
+      sort(orders: { column: number; ascending: boolean }[]): void;
+    };
+
+    // Prevent saving external entries
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Cannot save external entries - they are read-only');
+    }
+
     const validation = this.validate();
     if (!validation.isValid) {
       const errorMessage = validation.errors.join(", ");
@@ -168,22 +297,17 @@ export abstract class Entry {
       throw new Error(`Validation failed: ${errorMessage}`);
     }
 
-    const EntryClass = this.constructor as (new () => Entry) & {
-      _meta: IEntryMeta;
-      sort(orders: { column: number; ascending: boolean }[]): void;
-    };
-
     if (this._isNew) {
       await this.beforeSave();
       // Save the row with any changes made during beforeSave
-      await SheetService.appendRow(EntryClass._meta.sheetId, this.toRow());
+      await SheetService.appendRow(EntryClass._meta.sheetId as number, this.toRow());
       await this.afterSave();
     } else {
       await this.beforeUpdate();
       // Allow beforeUpdate to modify values before saving
       await this.beforeSave();
       // Save the row with any changes made during hooks
-      await SheetService.updateRow(EntryClass._meta.sheetId, this._row, this.toRow());
+      await SheetService.updateRow(EntryClass._meta.sheetId as number, this._row, this.toRow());
       await this.afterUpdate();
       await this.afterSave();
     }
@@ -204,8 +328,15 @@ export abstract class Entry {
   async delete(): Promise<void> {
     if (this._isNew) return;
 
+    const EntryClass = this.constructor as (new () => Entry) & { _meta: IEntryMeta };
+
+    // Prevent deleting external entries
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Cannot delete external entries - they are read-only');
+    }
+
     await this.beforeDelete();
-    await SheetService.deleteRow((this.constructor as typeof Entry)._meta.sheetId, this._row);
+    await SheetService.deleteRow(EntryClass._meta.sheetId as number, this._row);
     (this.constructor as typeof Entry as typeof Entry)._instances.delete(this.getCacheKey());
     await this.afterDelete();
   }
@@ -260,6 +391,15 @@ export abstract class Entry {
 
   // Add batch save functionality
   static async batchSave<T extends Entry>(entries: T[]): Promise<void> {
+    // Prevent batch saving external entries
+    if (entries.length > 0) {
+      const firstEntry = entries[0];
+      const EntryClass = firstEntry.constructor as (new () => Entry) & { _meta: IEntryMeta };
+      if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+        throw new Error('Cannot batch save external entries - they are read-only');
+      }
+    }
+
     const dirtyEntries = entries.filter((entry) => entry._isDirty);
     if (dirtyEntries.length === 0) return;
 
@@ -269,7 +409,7 @@ export abstract class Entry {
     // Handle new entries in batch
     if (newEntries.length > 0) {
       const newRows = newEntries.map((entry) => entry.toRow());
-      await SheetService.appendRows(this._meta.sheetId, newRows);
+      await SheetService.appendRows(this._meta.sheetId as number, newRows);
     }
 
     // Handle updates in batch
@@ -278,7 +418,7 @@ export abstract class Entry {
         row: entry._row,
         values: entry.toRow(),
       }));
-      await SheetService.updateRows(this._meta.sheetId, updates);
+      await SheetService.updateRows(this._meta.sheetId as number, updates);
     }
 
     // Mark all entries as clean
@@ -371,16 +511,23 @@ export abstract class Entry {
    * Apply filter to the sheet
    */
   static applyFilter<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta },
+    this: new () => T,
     criteria: GoogleAppsScript.Spreadsheet.FilterCriteria,
     column: number,
   ): void {
-    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const EntryClass = this as any;
+    
+    // External entries don't support filters
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Filter operations not supported on external entries');
+    }
+
+    const sheet = SheetService.getSheet(EntryClass._meta.sheetId as number);
     const range = sheet.getRange(
-      this._meta.headerRow,
-      this._meta.dataStartColumn,
-      sheet.getLastRow() - this._meta.headerRow,
-      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+      EntryClass._meta.headerRow,
+      EntryClass._meta.dataStartColumn,
+      sheet.getLastRow() - EntryClass._meta.headerRow,
+      EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1,
     );
 
     const filter = sheet.getFilter();
@@ -395,18 +542,25 @@ export abstract class Entry {
    * Sort the sheet based on provided sort orders
    */
   static sort<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta },
+    this: new () => T,
     sortOrders: { column: number; ascending: boolean }[],
   ): void {
-    const sheet = SheetService.getSheet(this._meta.sheetId);
+    const EntryClass = this as any;
+    
+    // External entries don't support sorting
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Sort operations not supported on external entries');
+    }
+
+    const sheet = SheetService.getSheet(EntryClass._meta.sheetId as number);
     const lastRow = sheet.getLastRow();
-    const numRows = Math.max(1, lastRow - this._meta.headerRow);
+    const numRows = Math.max(1, lastRow - EntryClass._meta.headerRow);
 
     const range = sheet.getRange(
-      this._meta.headerRow + 1,
-      this._meta.dataStartColumn,
+      EntryClass._meta.headerRow + 1,
+      EntryClass._meta.dataStartColumn,
       numRows,
-      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+      EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1,
     );
 
     range.sort(sortOrders);
@@ -415,8 +569,15 @@ export abstract class Entry {
   /**
    * Clear all filters from the sheet
    */
-  static clearFilters<T extends Entry>(this: (new () => T) & { _meta: IEntryMeta }): void {
-    const sheet = SheetService.getSheet(this._meta.sheetId);
+  static clearFilters<T extends Entry>(this: new () => T): void {
+    const EntryClass = this as any;
+    
+    // External entries don't support filters
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Filter operations not supported on external entries');
+    }
+
+    const sheet = SheetService.getSheet(EntryClass._meta.sheetId as number);
     const filter = sheet.getFilter();
     if (filter) {
       filter.remove();
@@ -427,15 +588,19 @@ export abstract class Entry {
    * Apply smart filters based on filter row values
    */
   static applySmartFilters<T extends Entry>(
-    this: (new () => T) & {
-      _meta: IEntryMeta;
-      clearFilters(): void;
-    },
+    this: new () => T,
   ): void {
-    const meta = this._meta;
+    const EntryClass = this as any;
+    
+    // External entries don't support filters
+    if (SheetService.isExternalEntry(EntryClass._meta.sheetId, EntryClass._meta.spreadsheetId)) {
+      throw new Error('Filter operations not supported on external entries');
+    }
+
+    const meta = EntryClass._meta;
     if (!meta.filterRow || !meta.filterRange) return;
 
-    const sheet = SheetService.getSheet(meta.sheetId);
+    const sheet = SheetService.getSheet(meta.sheetId as number);
     const filterRange = sheet.getRange(
       meta.filterRow,
       meta.filterRange.startColumn,
@@ -447,7 +612,7 @@ export abstract class Entry {
     if (meta.clearFiltersCell) {
       const clearValue = sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).getValue();
       if (clearValue === true) {
-        this.clearFilters();
+        EntryClass.clearFilters();
         // Reset the clear checkbox
         sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).setValue(false);
         // clear the filter range values

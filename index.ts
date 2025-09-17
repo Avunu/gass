@@ -9,7 +9,6 @@ export { SheetService, SheetValue, FilterCriteria } from "./services/SheetServic
 export { EmailService } from "./services/EmailService";
 export { CalendarService } from "./services/CalendarService";
 export { DocService } from "./services/DocService";
-export { ContactsService } from "./services/ContactsService";
 export { FormService } from "./services/FormService";
 export { TemplateService } from "./services/TemplateService";
 
