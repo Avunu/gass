@@ -117,6 +117,22 @@ export class SheetService {
     range.setValues(rows.map((row) => row.map((value) => this.convertToSheet(value))));
   }
 
+  static async prependRows(sheetId: number, rows: SheetValue[][]): Promise<void> {
+    const sheet = this.getSheet(sheetId);
+    
+    if (rows.length === 0) return;
+    
+    // Insert rows after the header row (row 2)
+    const insertPosition = 2;
+    
+    // Insert empty rows first
+    sheet.insertRowsAfter(1, rows.length);
+    
+    // Set the values in the newly inserted rows
+    const range = sheet.getRange(insertPosition, 1, rows.length, rows[0].length);
+    range.setValues(rows.map((row) => row.map((value) => this.convertToSheet(value))));
+  }
+
   static async updateRow(sheetId: number, rowNumber: number, rowData: SheetValue[]): Promise<void> {
     const sheet = this.getSheet(sheetId);
     const range = sheet.getRange(rowNumber, 1, 1, rowData.length);

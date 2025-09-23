@@ -296,6 +296,7 @@ export abstract class Entry {
       sort(sortOrders: { column: number; ascending: boolean }[]): void;
     },
     dataObjects: Array<{ [key: string]: SheetValue }>,
+    options: { prepend?: boolean } = {}
   ): Promise<T[]> {
     if (dataObjects.length === 0) return [];
 
@@ -338,8 +339,12 @@ export abstract class Entry {
     // Prepare rows for batch insert
     const rows = entries.map((entry) => entry.toRow());
 
-    // Perform batch insert
-    await SheetService.appendRows(this._meta.sheetId, rows);
+    // Perform batch insert (prepend or append based on options)
+    if (options.prepend) {
+      await SheetService.prependRows(this._meta.sheetId, rows);
+    } else {
+      await SheetService.appendRows(this._meta.sheetId, rows);
+    }
 
     // Run afterSave hooks asynchronously for all entries
     await Promise.all(entries.map((entry) => entry.afterSave()));
