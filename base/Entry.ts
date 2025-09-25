@@ -46,7 +46,7 @@ export abstract class Entry {
   // Add index signature to allow string indexing on derived classes
   [key: string]: SheetValue | unknown;
 
-  public constructor() {}
+  public constructor() { }
 
   // Update createInstance to ensure it's called only on concrete classes
   protected static createInstance<T extends Entry>(this: new () => T): T {
@@ -72,9 +72,9 @@ export abstract class Entry {
     const primarySort = this._meta.defaultSort?.[0];
     const sortInfo = primarySort
       ? {
-          columnIndex: this._meta.columns.indexOf(primarySort.column),
-          ascending: primarySort.ascending,
-        }
+        columnIndex: this._meta.columns.indexOf(primarySort.column),
+        ascending: primarySort.ascending,
+      }
       : undefined;
 
     const rows = await SheetService.getFilteredRows(
@@ -147,12 +147,12 @@ export abstract class Entry {
   abstract getCacheKey(): string;
   abstract validate(): ValidationResult;
 
-  protected beforeSave(): void {}
-  protected afterSave(): void {}
-  protected beforeUpdate(): void {}
-  protected afterUpdate(): void {}
-  protected beforeDelete(): void {}
-  protected afterDelete(): void {}
+  protected beforeSave(): void { }
+  protected afterSave(): void { }
+  protected beforeUpdate(): void { }
+  protected afterUpdate(): void { }
+  protected beforeDelete(): void { }
+  protected afterDelete(): void { }
 
   public markDirty(): void {
     this._isDirty = true;
@@ -295,28 +295,44 @@ export abstract class Entry {
       _instances: Map<string, Entry>;
       sort(sortOrders: { column: number; ascending: boolean }[]): void;
     },
-    dataObjects: Array<{ [key: string]: SheetValue }>,
+    data: Array<{ [key: string]: SheetValue }> | T[],
     options: { prepend?: boolean } = {}
   ): Promise<T[]> {
-    if (dataObjects.length === 0) return [];
+    if (data.length === 0) return [];
 
-    // Create Entry instances from data objects
-    const entries: T[] = [];
-    for (const data of dataObjects) {
-      const entry = new this();
+    let entries: T[];
 
-      // Set properties from data object
-      this._meta.columns.forEach((column) => {
-        if (data.hasOwnProperty(column)) {
-          (entry as any)[column] = data[column];
-        }
+    // Check if we received Entry instances or plain data objects
+    if (data[0] instanceof Entry) {
+      // We have Entry instances - use them directly
+      entries = data as T[];
+
+      // Ensure all entries are marked as new and dirty
+      entries.forEach(entry => {
+        entry._isNew = true;
+        entry._isDirty = true;
       });
+    } else {
+      // We have plain data objects - create Entry instances
+      entries = [];
+      const dataObjects = data as Array<{ [key: string]: SheetValue }>;
 
-      // Mark as new and dirty
-      entry._isNew = true;
-      entry._isDirty = true;
+      for (const dataObj of dataObjects) {
+        const entry = new this();
 
-      entries.push(entry);
+        // Set properties from data object
+        this._meta.columns.forEach((column) => {
+          if (dataObj.hasOwnProperty(column)) {
+            (entry as any)[column] = dataObj[column];
+          }
+        });
+
+        // Mark as new and dirty
+        entry._isNew = true;
+        entry._isDirty = true;
+
+        entries.push(entry);
+      }
     }
 
     // Validate all entries first
