@@ -41,7 +41,7 @@ export abstract class Entry {
   private static _columnIndices: { [key: string]: { [col: string]: number } } = {};
 
   static _cacheManager = new CacheManager();
-  static readonly CACHE_TIMEOUT = 3600; // 1 hour
+  static readonly CACHE_TIMEOUT = 21600; // 6 hours
 
   // Add index signature to allow string indexing on derived classes
   [key: string]: SheetValue | unknown;
