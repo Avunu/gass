@@ -167,12 +167,4 @@ export class DataEntryService {
       };
     }
   }
-
-  /**
-   * Get the HTML include for a file
-   * Used by the template to include CSS and JavaScript
-   */
-  static include(filename: string): string {
-    return HtmlService.createHtmlOutputFromFile(filename).getContent();
-  }
 }

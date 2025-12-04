@@ -261,8 +261,9 @@ export class EntryRegistry {
         try {
           DataEntryService.showAddEntryDialog(EntryType);
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
           SpreadsheetApp.getActiveSpreadsheet().toast(
-            `Error: ${error}`,
+            `Error: ${errorMsg}`,
             "Add Entry Failed",
             -1
           );
@@ -275,8 +276,9 @@ export class EntryRegistry {
         try {
           DataEntryService.showEditEntryDialog(EntryType);
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
           SpreadsheetApp.getActiveSpreadsheet().toast(
-            `Error: ${error}`,
+            `Error: ${errorMsg}`,
             "Edit Entry Failed",
             -1
           );
@@ -284,5 +286,15 @@ export class EntryRegistry {
         }
       };
     });
+
+    // Register the save function globally so it can be called from the dialog
+    global["saveEntryFromDialog"] = (
+      entryTypeName: string,
+      entryData: { [key: string]: SheetValue },
+      isEdit: boolean,
+      rowNumber?: number
+    ) => {
+      return DataEntryService.saveEntryFromDialog(entryTypeName, entryData, isEdit, rowNumber);
+    };
   }
 }

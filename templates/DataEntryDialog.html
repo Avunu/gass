@@ -2,6 +2,7 @@
 <html>
   <head>
     <base target="_top" />
+    <!-- Material Design Web Components via esm.run CDN as specified in requirements -->
     <script type="importmap">
       {
         "imports": {
@@ -100,6 +101,7 @@
 
     <script>
       // Entry metadata and data passed from server
+      // Note: Data is JSON-serialized by Google Apps Script which handles proper escaping
       const entryMeta = <?!= entryMeta ?>;
       const entryData = <?!= entryData ?>;
       const isEdit = <?= isEdit ?>;
