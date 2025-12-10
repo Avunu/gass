@@ -215,10 +215,14 @@ export abstract class Entry {
 
     // map data in order of columns array
     return meta.columns.map((col) => {
+      // Check if property exists in the object or its prototype chain
       if (!(col in this)) {
-        throw new Error(`Property not found in object: ${col}`);
+        // Return undefined/null for missing optional properties instead of throwing
+        return null;
       }
-      return this[col] as SheetValue;
+      const value = this[col] as SheetValue;
+      // Convert undefined to null for sheet compatibility
+      return value === undefined ? null : value;
     });
   }
 
