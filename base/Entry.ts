@@ -168,6 +168,11 @@ export abstract class Entry {
       }
 
       try {
+        // Resolve the target type (handle both lazy and direct)
+        const EntryType = typeof link.targetType === 'function' && link.targetType.prototype === undefined
+          ? (link.targetType as () => new () => Entry)()
+          : link.targetType as new () => Entry;
+
         if (link.isArray) {
           // Handle comma-separated array links
           const separator = link.separator || ",";
@@ -175,7 +180,6 @@ export abstract class Entry {
           const linkedObjects: Entry[] = [];
 
           for (const name of names) {
-            const EntryType = link.targetType;
             const targetField = link.targetField || "name";
             const filterCriteria: FilterCriteria = {
               [targetField]: name,
@@ -185,12 +189,10 @@ export abstract class Entry {
             if (results && results.length > 0) {
               linkedObjects.push(results[0]);
             } else {
-              // Still track that we couldn't find this one
               allExist = false;
             }
           }
 
-          // Create array proxy even if some objects weren't found
           const proxy = createLinkArrayProxy(
             this,
             link.fieldName,
@@ -199,11 +201,9 @@ export abstract class Entry {
             separator
           );
 
-          // Replace the field value with the proxy
           (this as any)[link.fieldName] = proxy;
         } else {
           // Handle single link
-          const EntryType = link.targetType;
           const targetField = link.targetField || "name";
           const filterCriteria: FilterCriteria = {
             [targetField]: linkValue,
@@ -216,7 +216,6 @@ export abstract class Entry {
             allExist = false;
           }
 
-          // Create a proxy that acts as both string and object
           const proxy = createLinkProxy(
             this,
             link.fieldName,
@@ -224,7 +223,6 @@ export abstract class Entry {
             linkedObject
           );
 
-          // Replace the field value with the proxy
           (this as any)[link.fieldName] = proxy;
         }
       } catch (error) {

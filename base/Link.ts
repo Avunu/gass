@@ -8,11 +8,11 @@ export type LinkArray<T extends Entry> = string & T[];
 
 // Metadata for link fields
 export interface LinkMetadata<T extends Entry> {
-  targetType: new () => T;
+  targetType: (() => new () => T) | (new () => T); // Support both lazy and direct
   fieldName: string;
-  targetField?: string; // Field to match on target (default: 'name')
-  isArray?: boolean; // Whether this is a comma-separated list
-  separator?: string; // Separator for array links (default: ',')
+  targetField?: string;
+  isArray?: boolean;
+  separator?: string;
 }
 
 // Symbol to store link metadata on the class
@@ -24,7 +24,7 @@ export const IS_LINK_PROXY = Symbol("isLinkProxy");
 
 // Decorator to mark a field as a link
 export function link<T extends Entry>(
-  targetType: new () => T,
+  targetType: () => new () => T, // Changed to function
   options?: { targetField?: string }
 ) {
   return function (target: any, propertyKey: string) {
@@ -33,7 +33,7 @@ export function link<T extends Entry>(
     }
     
     target.constructor[LINK_METADATA].push({
-      targetType,
+      targetType, // Store the function
       fieldName: propertyKey,
       targetField: options?.targetField || "name",
       isArray: false,
@@ -43,7 +43,7 @@ export function link<T extends Entry>(
 
 // Decorator to mark a field as an array link (comma-separated)
 export function linkArray<T extends Entry>(
-  targetType: new () => T,
+  targetType: () => new () => T, // Changed to function
   options?: { targetField?: string; separator?: string }
 ) {
   return function (target: any, propertyKey: string) {
@@ -52,7 +52,7 @@ export function linkArray<T extends Entry>(
     }
     
     target.constructor[LINK_METADATA].push({
-      targetType,
+      targetType, // Store the function
       fieldName: propertyKey,
       targetField: options?.targetField || "name",
       isArray: true,
