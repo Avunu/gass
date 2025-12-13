@@ -11,7 +11,7 @@ interface SortSpec {
   ascending: boolean;
 }
 
-type FilterOperator = "$exists" | "$lt" | "$gt" | "$lte" | "$gte" | "$eq" | "$between";
+type FilterOperator = "$exists" | "$lt" | "$gt" | "$lte" | "$gte" | "$eq" | "$between" | "$contains";
 
 type FilterValue =
   | {
@@ -308,6 +308,9 @@ export class SheetService {
               throw new Error("$between operator requires an array of [min, max]");
             }
             return value >= compareValue[0] && value <= compareValue[1];
+          case "$contains":
+            // Convert both to strings and check if value contains the compareValue
+            return String(value).toLowerCase().includes(String(compareValue).toLowerCase());
           default:
             return value === filterValue; // Treat as direct comparison
         }
