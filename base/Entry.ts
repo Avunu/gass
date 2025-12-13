@@ -176,9 +176,10 @@ export abstract class Entry {
 
           for (const name of names) {
             const EntryType = link.targetType;
-            const results = await (EntryType as any).get({
-              [link.targetField]: name,
-            });
+            const filterCriteria: FilterCriteria = {
+              [link.targetField!]: name,
+            };
+            const results = await (EntryType as any).get(filterCriteria);
 
             if (results && results.length > 0) {
               linkedObjects.push(results[0]);
@@ -202,9 +203,10 @@ export abstract class Entry {
         } else {
           // Handle single link
           const EntryType = link.targetType;
-          const results = await (EntryType as any).get({
-            [link.targetField]: linkValue,
-          });
+          const filterCriteria: FilterCriteria = {
+            [link.targetField!]: linkValue,
+          };
+          const results = await (EntryType as any).get(filterCriteria);
 
           const linkedObject = results && results.length > 0 ? results[0] : null;
           
@@ -308,19 +310,21 @@ export abstract class Entry {
         // Return undefined/null for missing optional properties instead of throwing
         return null;
       }
-      const value = this[col] as SheetValue;
+      const value = this[col];
       
       // Convert proxy back to string value for storage
       if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
         // Check if it's a proxy by trying to get its string value
-        const stringValue = value.toString();
-        if (typeof stringValue === 'string') {
-          return stringValue;
+        if ('toString' in value && typeof value.toString === 'function') {
+          const stringValue = value.toString();
+          if (typeof stringValue === 'string') {
+            return stringValue;
+          }
         }
       }
       
       // Convert undefined to null for sheet compatibility
-      return value === undefined ? null : value;
+      return value === undefined ? null : (value as SheetValue);
     });
   }
 
