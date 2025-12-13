@@ -20,6 +20,8 @@ export interface LinkMetadata<T extends Entry> {
 const LINK_METADATA = Symbol("linkMetadata");
 // Symbol to store cached linked objects
 const LINKED_CACHE = Symbol("linkedCache");
+// Symbol to identify proxies
+export const IS_LINK_PROXY = Symbol("isLinkProxy");
 
 // Decorator to mark a field as a link
 export function link<T extends Entry>(
@@ -87,6 +89,11 @@ export function createLinkProxy<T extends Entry>(
   // Create a proxy that intercepts property access
   const proxy = new Proxy(new String(stringValue) as any, {
     get(target, prop, receiver) {
+      // Handle proxy identification symbol
+      if (prop === IS_LINK_PROXY) {
+        return true;
+      }
+      
       // Handle string methods and properties
       if (prop === 'toString' || prop === 'valueOf') {
         return () => stringValue;
@@ -102,12 +109,7 @@ export function createLinkProxy<T extends Entry>(
         return stringValue.length;
       }
 
-      // Handle numeric indices for string character access
-      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
-        return stringValue[parseInt(prop)];
-      }
-
-      // If accessing a property on the linked object
+      // If accessing a property on the linked object, prioritize it over string character access
       if (linkedObject && prop in linkedObject) {
         const value = (linkedObject as any)[prop];
         
@@ -131,6 +133,11 @@ export function createLinkProxy<T extends Entry>(
         }
         
         return value;
+      }
+
+      // Handle numeric indices for string character access (fallback after linked object check)
+      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
+        return stringValue[parseInt(prop)];
       }
 
       // Fall back to string behavior
@@ -187,6 +194,11 @@ export function createLinkArrayProxy<T extends Entry>(
   // Create a proxy that acts as both string and array
   const proxy = new Proxy(new String(stringValue) as any, {
     get(target, prop, receiver) {
+      // Handle proxy identification symbol
+      if (prop === IS_LINK_PROXY) {
+        return true;
+      }
+      
       // Handle string methods and properties
       if (prop === 'toString' || prop === 'valueOf') {
         return () => stringValue;
@@ -236,7 +248,8 @@ export function createLinkArrayProxy<T extends Entry>(
       
       // Check if it's an array method
       if (prop === 'map' || prop === 'filter' || prop === 'forEach' || 
-          prop === 'find' || prop === 'length') {
+          prop === 'find' || prop === 'some' || prop === 'every' ||
+          prop === 'reduce' || prop === 'slice' || prop === 'includes' || prop === 'length') {
         return true;
       }
       

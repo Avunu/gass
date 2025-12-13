@@ -2,7 +2,7 @@ import { FilterCriteria, SheetService, SheetValue } from "../services/SheetServi
 import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
-import { getLinkMetadata, LinkMetadata, createLinkProxy, createLinkArrayProxy } from "./Link";
+import { getLinkMetadata, LinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
 
 export interface IEntryMeta {
   sheetId: number;
@@ -314,12 +314,9 @@ export abstract class Entry {
       
       // Convert proxy back to string value for storage
       if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
-        // Check if it's a proxy by trying to get its string value
-        if ('toString' in value && typeof value.toString === 'function') {
-          const stringValue = value.toString();
-          if (typeof stringValue === 'string') {
-            return stringValue;
-          }
+        // Check if it's a link proxy using the symbol
+        if ((value as any)[IS_LINK_PROXY]) {
+          return value.toString();
         }
       }
       
