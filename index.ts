@@ -3,6 +3,7 @@ export { Entry, IEntryMeta, ValidationResult } from "./base/Entry";
 export { EntryRegistry, MenuItem, MenuHandler, GlobalMenuFunctions } from "./base/EntryRegistry";
 export { SchedulerService } from "./base/ScheduledJob";
 export { CacheManager } from "./base/cacheManager";
+export { Link, LinkArray, LinkMetadata, link, linkArray, getLinkMetadata, createLinkProxy, createLinkArrayProxy } from "./base/Link";
 
 // Core services
 export { SheetService, SheetValue, FilterCriteria } from "./services/SheetService";

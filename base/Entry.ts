@@ -2,6 +2,7 @@ import { FilterCriteria, SheetService, SheetValue } from "../services/SheetServi
 import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
+import { getLinkMetadata, LinkMetadata, createLinkProxy, createLinkArrayProxy } from "./Link";
 
 export interface IEntryMeta {
   sheetId: number;
@@ -147,6 +148,93 @@ export abstract class Entry {
   abstract getCacheKey(): string;
   abstract validate(): ValidationResult;
 
+  // Add a method to automatically fetch linked objects
+  protected async getLinkedObjects(): Promise<boolean> {
+    const metadata = getLinkMetadata(this.constructor as new () => Entry);
+    let allExist = true;
+
+    for (const link of metadata) {
+      const linkValue = (this as any)[link.fieldName] as SheetValue;
+
+      // Skip if the link field is empty
+      if (!linkValue) {
+        continue;
+      }
+
+      // Skip if already fetched (the proxy will be in place)
+      const currentValue = (this as any)[link.fieldName];
+      if (typeof currentValue === 'object' && currentValue !== null && !(currentValue instanceof Date)) {
+        continue;
+      }
+
+      try {
+        if (link.isArray) {
+          // Handle comma-separated array links
+          const separator = link.separator || ",";
+          const names = String(linkValue).split(separator).map(name => name.trim()).filter(Boolean);
+          const linkedObjects: Entry[] = [];
+
+          for (const name of names) {
+            const EntryType = link.targetType;
+            const results = await (EntryType as any).get({
+              [link.targetField]: name,
+            });
+
+            if (results && results.length > 0) {
+              linkedObjects.push(results[0]);
+            } else {
+              // Still track that we couldn't find this one
+              allExist = false;
+            }
+          }
+
+          // Create array proxy even if some objects weren't found
+          const proxy = createLinkArrayProxy(
+            this,
+            link.fieldName,
+            String(linkValue),
+            linkedObjects,
+            separator
+          );
+
+          // Replace the field value with the proxy
+          (this as any)[link.fieldName] = proxy;
+        } else {
+          // Handle single link
+          const EntryType = link.targetType;
+          const results = await (EntryType as any).get({
+            [link.targetField]: linkValue,
+          });
+
+          const linkedObject = results && results.length > 0 ? results[0] : null;
+          
+          if (!linkedObject) {
+            allExist = false;
+          }
+
+          // Create a proxy that acts as both string and object
+          const proxy = createLinkProxy(
+            this,
+            link.fieldName,
+            String(linkValue),
+            linkedObject
+          );
+
+          // Replace the field value with the proxy
+          (this as any)[link.fieldName] = proxy;
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching linked object for ${link.fieldName}:`,
+          error
+        );
+        allExist = false;
+      }
+    }
+
+    return allExist;
+  }
+
   protected beforeSave(): void { }
   protected afterSave(): void { }
   protected beforeUpdate(): void { }
@@ -221,6 +309,16 @@ export abstract class Entry {
         return null;
       }
       const value = this[col] as SheetValue;
+      
+      // Convert proxy back to string value for storage
+      if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+        // Check if it's a proxy by trying to get its string value
+        const stringValue = value.toString();
+        if (typeof stringValue === 'string') {
+          return stringValue;
+        }
+      }
+      
       // Convert undefined to null for sheet compatibility
       return value === undefined ? null : value;
     });
