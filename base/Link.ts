@@ -1,5 +1,4 @@
 import { Entry } from "./Entry";
-import { SheetValue } from "../services/SheetService";
 
 // Type to represent a linked entity that behaves as both string and object
 export type Link<T extends Entry> = string & T;
@@ -88,7 +87,7 @@ export function createLinkProxy<T extends Entry>(
 
   // Create a proxy that intercepts property access
   const proxy = new Proxy(new String(stringValue) as any, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       // Handle proxy identification symbol
       if (prop === IS_LINK_PROXY) {
         return true;
@@ -191,9 +190,12 @@ export function createLinkArrayProxy<T extends Entry>(
   // Store the linked objects in cache
   cache.set(fieldName, linkedObjects);
 
+  // Split string value using the separator to get individual values
+  const stringValues = stringValue.split(separator).map(s => s.trim());
+
   // Create a proxy that acts as both string and array
   const proxy = new Proxy(new String(stringValue) as any, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       // Handle proxy identification symbol
       if (prop === IS_LINK_PROXY) {
         return true;
@@ -235,6 +237,14 @@ export function createLinkArrayProxy<T extends Entry>(
         return (linkedObjects as any)[prop].bind(linkedObjects);
       }
 
+      // Handle join method to reconstruct string with separator
+      if (prop === 'join') {
+        return (joiner?: string) => {
+          const sep = joiner !== undefined ? joiner : separator;
+          return stringValues.join(sep);
+        };
+      }
+
       // For string character access, use the string value
       return (target as any)[prop];
     },
@@ -249,7 +259,8 @@ export function createLinkArrayProxy<T extends Entry>(
       // Check if it's an array method
       if (prop === 'map' || prop === 'filter' || prop === 'forEach' || 
           prop === 'find' || prop === 'some' || prop === 'every' ||
-          prop === 'reduce' || prop === 'slice' || prop === 'includes' || prop === 'length') {
+          prop === 'reduce' || prop === 'slice' || prop === 'includes' || 
+          prop === 'join' || prop === 'length') {
         return true;
       }
       

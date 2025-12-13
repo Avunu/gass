@@ -2,7 +2,7 @@ import { FilterCriteria, SheetService, SheetValue } from "../services/SheetServi
 import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
-import { getLinkMetadata, LinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
+import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
 
 export interface IEntryMeta {
   sheetId: number;
