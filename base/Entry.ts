@@ -163,7 +163,7 @@ export abstract class Entry {
 
       // Skip if already fetched (the proxy will be in place)
       const currentValue = (this as any)[link.fieldName];
-      if (typeof currentValue === 'object' && currentValue !== null && !(currentValue instanceof Date)) {
+      if (currentValue?.[IS_LINK_PROXY]) {
         continue;
       }
 
@@ -176,8 +176,9 @@ export abstract class Entry {
 
           for (const name of names) {
             const EntryType = link.targetType;
+            const targetField = link.targetField || "name";
             const filterCriteria: FilterCriteria = {
-              [link.targetField!]: name,
+              [targetField]: name,
             };
             const results = await (EntryType as any).get(filterCriteria);
 
@@ -203,8 +204,9 @@ export abstract class Entry {
         } else {
           // Handle single link
           const EntryType = link.targetType;
+          const targetField = link.targetField || "name";
           const filterCriteria: FilterCriteria = {
-            [link.targetField!]: linkValue,
+            [targetField]: linkValue,
           };
           const results = await (EntryType as any).get(filterCriteria);
 

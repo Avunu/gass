@@ -119,8 +119,8 @@ export function createLinkProxy<T extends Entry>(
         
         if (isLinkField && typeof value === 'string') {
           // Check if we already have the nested linked object cached
-          const nestedLinked = cache.get(`${fieldName}.${String(prop)}`);
-          if (nestedLinked !== undefined) {
+          if (cache.has(`${fieldName}.${String(prop)}`)) {
+            const nestedLinked = cache.get(`${fieldName}.${String(prop)}`) ?? null;
             return createLinkProxy(linkedObject, String(prop), value, nestedLinked);
           }
           // Return the string value for now; it will be loaded on first access
