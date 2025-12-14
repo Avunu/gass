@@ -69,7 +69,7 @@ export class SheetService {
     return lastRow;
   }
 
-  static async getAllRows(sheetId: number): Promise<RowResult[]> {
+  static async getAllRows(sheetId: number, startRow: number = 2): Promise<RowResult[]> {
     const sheet = this.getSheet(sheetId);
     const lastRow = this.getLastRowNumber(sheet);
     const lastColumn = sheet.getLastColumn();
@@ -78,11 +78,11 @@ export class SheetService {
       return [];
     }
 
-    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+    const values = sheet.getRange(startRow, 1, lastRow - startRow + 1, lastColumn).getValues();
 
     return values.map((row, index) => ({
       data: row.map((cell) => this.convertFromSheet(cell)),
-      rowNumber: index + 1, // This was wrong - it should be actual sheet row number
+      rowNumber: index + startRow,
     }));
   }
 

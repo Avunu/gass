@@ -136,7 +136,7 @@ export abstract class Entry {
   static async getAll<T extends Entry>(
     this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
   ): Promise<T[]> {
-    const rows = await SheetService.getAllRows(this._meta.sheetId);
+    const rows = await SheetService.getAllRows(this._meta.sheetId, this._meta.headerRow + 1);
     return rows.map((row) => {
       const entry = new this();
       entry.fromRow(row.data, row.rowNumber);
