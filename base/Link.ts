@@ -85,9 +85,12 @@ export function createLinkProxy<T extends Entry>(
   // Store the linked object in cache
   cache.set(fieldName, linkedObject);
 
+  // Use a plain object as the proxy target instead of String
+  const target = Object.create(String.prototype);
+  
   // Create a proxy that intercepts property access
-  const proxy = new Proxy(new String(stringValue) as any, {
-    get(target, prop) {
+  const proxy = new Proxy(target, {
+    get(_target, prop) {
       // Handle proxy identification symbol
       if (prop === IS_LINK_PROXY) {
         return true;
@@ -100,10 +103,10 @@ export function createLinkProxy<T extends Entry>(
       
       // Handle Symbol properties (for...of, etc)
       if (typeof prop === 'symbol') {
-        return target[prop];
+        return String.prototype[prop as any];
       }
 
-      // Handle length property
+      // Handle length property - return string length
       if (prop === 'length') {
         return stringValue.length;
       }
@@ -139,25 +142,39 @@ export function createLinkProxy<T extends Entry>(
         return stringValue[parseInt(prop)];
       }
 
-      // Fall back to string behavior
-      return (target as any)[prop];
+      // Fall back to string prototype methods
+      const stringMethod = (String.prototype as any)[prop];
+      if (typeof stringMethod === 'function') {
+        return stringMethod.bind(stringValue);
+      }
+
+      return undefined;
     },
 
-    has(target, prop) {
+    has(_target, prop) {
       if (linkedObject && prop in linkedObject) {
         return true;
       }
-      return prop in target;
+      return prop in String.prototype;
     },
 
-    ownKeys(target) {
+    ownKeys(_target) {
       if (linkedObject) {
-        return [...Reflect.ownKeys(target), ...Object.keys(linkedObject)];
+        return [...Object.keys(linkedObject), ...Object.keys(String.prototype)];
       }
-      return Reflect.ownKeys(target);
+      return Object.keys(String.prototype);
     },
 
-    getOwnPropertyDescriptor(target, prop) {
+    getOwnPropertyDescriptor(_target, prop) {
+      if (prop === 'length') {
+        return {
+          enumerable: false,
+          configurable: true,
+          writable: false,
+          value: stringValue.length,
+        };
+      }
+      
       if (linkedObject && prop in linkedObject) {
         return {
           enumerable: true,
@@ -165,7 +182,8 @@ export function createLinkProxy<T extends Entry>(
           value: (linkedObject as any)[prop],
         };
       }
-      return Reflect.getOwnPropertyDescriptor(target, prop);
+      
+      return undefined;
     },
   });
 
@@ -193,9 +211,12 @@ export function createLinkArrayProxy<T extends Entry>(
   // Split string value using the separator to get individual values
   const stringValues = stringValue.split(separator).map(s => s.trim());
 
+  // Use a plain object as the proxy target instead of String
+  const target = Object.create(String.prototype);
+
   // Create a proxy that acts as both string and array
-  const proxy = new Proxy(new String(stringValue) as any, {
-    get(target, prop) {
+  const proxy = new Proxy(target, {
+    get(_target, prop) {
       // Handle proxy identification symbol
       if (prop === IS_LINK_PROXY) {
         return true;
@@ -216,7 +237,7 @@ export function createLinkArrayProxy<T extends Entry>(
             }
           };
         }
-        return target[prop];
+        return Array.prototype[prop as any];
       }
 
       // Handle array properties and methods
@@ -245,11 +266,16 @@ export function createLinkArrayProxy<T extends Entry>(
         };
       }
 
-      // For string character access, use the string value
-      return (target as any)[prop];
+      // Fall back to string prototype methods
+      const stringMethod = (String.prototype as any)[prop];
+      if (typeof stringMethod === 'function') {
+        return stringMethod.bind(stringValue);
+      }
+
+      return undefined;
     },
 
-    has(target, prop) {
+    has(_target, prop) {
       // Check if numeric index is valid
       if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
         const index = parseInt(prop);
@@ -264,16 +290,16 @@ export function createLinkArrayProxy<T extends Entry>(
         return true;
       }
       
-      return prop in target;
+      return prop in String.prototype;
     },
 
-    ownKeys(target) {
+    ownKeys(_target) {
       // Include numeric indices
       const indices = linkedObjects.map((_, i) => String(i));
-      return [...Reflect.ownKeys(target), ...indices, 'length'];
+      return [...indices, 'length'];
     },
 
-    getOwnPropertyDescriptor(target, prop) {
+    getOwnPropertyDescriptor(_target, prop) {
       if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
         const index = parseInt(prop);
         if (index >= 0 && index < linkedObjects.length) {
@@ -288,12 +314,13 @@ export function createLinkArrayProxy<T extends Entry>(
       if (prop === 'length') {
         return {
           enumerable: false,
-          configurable: false,
+          configurable: true,
+          writable: false,
           value: linkedObjects.length,
         };
       }
       
-      return Reflect.getOwnPropertyDescriptor(target, prop);
+      return undefined;
     },
   });
 
