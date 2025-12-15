@@ -75,6 +75,50 @@ export abstract class Entry {
     if (this._metaExtended.fields) {
       this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
     }
+
+    // Validate that link decorators match JSON-LD metadata (in development mode)
+    if (typeof Logger !== 'undefined') {
+      this.validateLinkDecorators();
+    }
+  }
+
+  /**
+   * Validate that @link/@linkArray decorators match JSON-LD metadata definitions
+   * Logs warnings if there are mismatches
+   */
+  protected static validateLinkDecorators(): void {
+    if (!this._metaExtended?.fields) return;
+
+    const relationships = MetadataLoader.getRelationships(this._metaExtended);
+    const linkMetadata = getLinkMetadata(this as any);
+
+    // Check that each decorator has corresponding JSON-LD metadata
+    for (const link of linkMetadata) {
+      const relationship = relationships.get(link.fieldName);
+      if (!relationship) {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} has @link decorator but no JSON-LD metadata (@type/@id)`
+        );
+      } else if (link.isArray && relationship.type !== "LinkArray") {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @linkArray but JSON-LD @type is "${relationship.type}"`
+        );
+      } else if (!link.isArray && relationship.type !== "Link") {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @link but JSON-LD @type is "${relationship.type}"`
+        );
+      }
+    }
+
+    // Check that each JSON-LD relationship has a decorator
+    for (const [fieldName, relationship] of relationships) {
+      const hasDecorator = linkMetadata.some(link => link.fieldName === fieldName);
+      if (!hasDecorator) {
+        Logger.log(
+          `Warning: Field "${fieldName}" in ${this.name} has JSON-LD relationship metadata but no @link/@linkArray decorator`
+        );
+      }
+    }
   }
 
   /**

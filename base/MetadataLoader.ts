@@ -5,8 +5,13 @@ import entryMetaSchema from "../types/entry-meta.schema.json";
 
 /**
  * Extended metadata interface that includes field-level validation rules
+ * and JSON-LD relationship definitions
  */
 export interface IEntryMetaExtended extends IEntryMeta {
+  "@context"?: {
+    "@vocab"?: string;
+    [key: string]: any;
+  };
   fields?: {
     [fieldName: string]: {
       type?: "string" | "number" | "integer" | "boolean" | "null" | "array" | "object";
@@ -20,6 +25,11 @@ export interface IEntryMetaExtended extends IEntryMeta {
       enum?: any[];
       default?: any;
       description?: string;
+      // JSON-LD relationship properties
+      "@type"?: "Link" | "LinkArray";
+      "@id"?: string; // Target Entry class name
+      targetField?: string; // Field on target Entry to match against
+      separator?: string; // For LinkArray types
     };
   };
 }
@@ -216,5 +226,34 @@ export class MetadataLoader {
     }
 
     return { isValid: true, errors: [] };
+  }
+
+  /**
+   * Extract JSON-LD relationship information from metadata
+   * @param metadata - The entry metadata with JSON-LD definitions
+   * @returns Map of field names to their relationship definitions
+   */
+  static getRelationships(
+    metadata: IEntryMetaExtended
+  ): Map<string, { type: "Link" | "LinkArray"; targetClass: string; targetField: string; separator?: string }> {
+    const relationships = new Map();
+
+    if (!metadata.fields) {
+      return relationships;
+    }
+
+    for (const [fieldName, fieldDef] of Object.entries(metadata.fields)) {
+      // Check if this field has JSON-LD relationship annotations
+      if (fieldDef["@type"] && fieldDef["@id"]) {
+        relationships.set(fieldName, {
+          type: fieldDef["@type"],
+          targetClass: fieldDef["@id"],
+          targetField: fieldDef.targetField || "name",
+          separator: fieldDef.separator,
+        });
+      }
+    }
+
+    return relationships;
   }
 }

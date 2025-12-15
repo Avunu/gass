@@ -6,6 +6,18 @@
   "type": "object",
   "required": ["sheetId", "columns", "headerRow", "dataStartColumn", "dataEndColumn"],
   "properties": {
+    "@context": {
+      "type": "object",
+      "description": "JSON-LD context for defining vocabulary and semantic relationships",
+      "properties": {
+        "@vocab": {
+          "type": "string",
+          "format": "uri",
+          "description": "Default vocabulary URI"
+        }
+      },
+      "additionalProperties": true
+    },
     "sheetId": {
       "type": "integer",
       "description": "The unique identifier of the Google Sheet",
@@ -153,6 +165,25 @@
             "description": {
               "type": "string",
               "description": "Human-readable description of the field"
+            },
+            "@type": {
+              "type": "string",
+              "enum": ["Link", "LinkArray"],
+              "description": "JSON-LD type indicating this field is a relationship to another Entry type"
+            },
+            "@id": {
+              "type": "string",
+              "description": "JSON-LD identifier - the target Entry class name (e.g., 'Service', 'Region')"
+            },
+            "targetField": {
+              "type": "string",
+              "description": "The field name on the target Entry to match against (defaults to 'name')",
+              "default": "name"
+            },
+            "separator": {
+              "type": "string",
+              "description": "Separator for LinkArray types (defaults to ',')",
+              "default": ","
             }
           }
         }
