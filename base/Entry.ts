@@ -33,7 +33,7 @@ export type ValidationResult = {
 };
 
 export abstract class Entry {
-  protected static _meta: IEntryMeta;
+  public static _meta: IEntryMeta;
   protected static _instances: Map<string, Entry> = new Map();
   
   // Optional JSON Schema-based metadata and validator
