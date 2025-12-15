@@ -6,6 +6,7 @@ Sheets.
 ## Key Features
 
 - **Type-safe ORM**: Strongly typed entity classes with validation
+- **JSON Schema Metadata**: Define metadata and validation rules using industry-standard JSON Schema
 - **Automatic sync**: Handles Google Sheets edits automatically
 - **Caching**: Built-in caching for improved performance
 - **Filtering**: Advanced filtering with operators ($gt, $lt, $between, etc.)
@@ -14,6 +15,7 @@ Sheets.
 - **Services**: Pre-built services for Google Workspace integration
 - **Job scheduling**: Built-in job scheduling system
 - **Menu integration**: Automatic menu generation from entry types
+- **Format validation**: Built-in validators for email, date, URI, and more via AJV
 
 ## Structure
 
@@ -53,6 +55,76 @@ import {
 ```
 
 ### 2. Create entry types
+
+You can create entry types using either the traditional TypeScript approach or the new JSON Schema approach.
+
+#### Option A: JSON Schema Approach (Recommended)
+
+Create a `.meta.json` file with your metadata and validation rules:
+
+**MyEntity.meta.json:**
+```json
+{
+  "$schema": "../types/entry-meta.schema.json",
+  "sheetId": 123456789,
+  "headerRow": 1,
+  "dataStartColumn": 1,
+  "dataEndColumn": 5,
+  "columns": ["id", "name", "email", "phone", "status"],
+  "defaultSort": [{ "column": "name", "ascending": true }],
+  "fields": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "email": {
+      "type": "string",
+      "required": true,
+      "format": "email"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive", "pending"]
+    }
+  }
+}
+```
+
+**MyEntity.ts:**
+```typescript
+import { Entry, ValidationResult } from "./lib/base/Entry";
+import metadata from "./MyEntity.meta.json";
+
+export class MyEntity extends Entry {
+  static {
+    this.loadMetadataFromJSON(metadata);
+  }
+
+  static override _instances = new Map<string, MyEntity>();
+
+  public id: string = "";
+  public name: string = "";
+  public email: string = "";
+  public phone: string = "";
+  public status: string = "";
+
+  getCacheKey(): string {
+    return this.id;
+  }
+
+  validate(): ValidationResult {
+    // JSON Schema validation runs automatically
+    // Add additional business logic validation here if needed
+    return { isValid: true, errors: [] };
+  }
+}
+```
+
+See [JSON_SCHEMA_METADATA.md](./JSON_SCHEMA_METADATA.md) for complete documentation.
+
+#### Option B: Traditional TypeScript Approach
 
 Extend the base `Entry` class for your specific entities:
 

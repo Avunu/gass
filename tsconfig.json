@@ -11,7 +11,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "noEmit": true,
-    "types": ["google-apps-script"]
+    "resolveJsonModule": true,
+    "types": ["google-apps-script", "node"]
   },
   "include": [
     "**/*.ts"

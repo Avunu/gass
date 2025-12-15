@@ -17,6 +17,9 @@
   "version": "0.0.1",
   "devDependencies": {
     "@types/google-apps-script": "^2",
+    "@types/node": "^25.0.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "rolldown": "^1.0.0-beta.54"
   }
 }
