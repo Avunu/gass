@@ -116,24 +116,24 @@ export class MetadataLoader {
     return validatedMeta;
   }
 
-  /**
-   * Load metadata from a JSON file path (for Node.js/testing environments)
-   * Note: This won't work in Apps Script environment, use loadFromObject instead
-   * @param filePath - Path to the JSON metadata file
-   * @returns Validated metadata
-   */
-  static loadFromFile(filePath: string): IEntryMetaExtended {
-    // This is for testing/development environments only
-    // In Apps Script, metadata should be imported as modules
-    try {
-      const fs = require("fs");
-      const content = fs.readFileSync(filePath, "utf-8");
-      const metadata = JSON.parse(content);
-      return this.loadFromObject(metadata);
-    } catch (error) {
-      throw new Error(`Failed to load metadata from file ${filePath}: ${error}`);
-    }
-  }
+  // /**
+  //  * Load metadata from a JSON file path (for Node.js/testing environments)
+  //  * Note: This won't work in Apps Script environment, use loadFromObject instead
+  //  * @param filePath - Path to the JSON metadata file
+  //  * @returns Validated metadata
+  //  */
+  // static loadFromFile(filePath: string): IEntryMetaExtended {
+  //   // This is for testing/development environments only
+  //   // In Apps Script, metadata should be imported as modules
+  //   try {
+  //     const fs = require("fs");
+  //     const content = fs.readFileSync(filePath, "utf-8");
+  //     const metadata = JSON.parse(content);
+  //     return this.loadFromObject(metadata);
+  //   } catch (error) {
+  //     throw new Error(`Failed to load metadata from file ${filePath}: ${error}`);
+  //   }
+  // }
 
   /**
    * Create a data validator for Entry instances based on field definitions

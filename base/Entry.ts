@@ -111,7 +111,7 @@ export abstract class Entry {
     }
 
     // Check that each JSON-LD relationship has a decorator
-    for (const [fieldName, relationship] of relationships) {
+    for (const [fieldName, _relationship] of relationships) {
       const hasDecorator = linkMetadata.some(link => link.fieldName === fieldName);
       if (!hasDecorator) {
         Logger.log(
