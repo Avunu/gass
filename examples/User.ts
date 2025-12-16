@@ -68,7 +68,7 @@ export class User extends Entry {
   protected override beforeSave(): void {
     // Auto-generate ID if not set
     if (!this.id) {
-      this.id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     }
 
     // Auto-set createdAt if new

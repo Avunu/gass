@@ -219,7 +219,7 @@ export class MetadataLoader {
     if (!valid) {
       const errors =
         validator.errors?.map((err) => {
-          const field = err.instancePath.replace(/^\//, "") || err.params.missingProperty;
+          const field = err.instancePath.replace(/^\//, "") || err.params?.missingProperty || "";
           return `${field}: ${err.message}`;
         }) || [];
       return { isValid: false, errors };
