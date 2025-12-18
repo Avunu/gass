@@ -3,6 +3,8 @@ import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
 import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
+import { MetadataLoader, IEntryMetaExtended } from "./MetadataLoader";
+import { ValidateFunction } from "ajv";
 
 export interface IEntryMeta {
   sheetId: number;
@@ -31,8 +33,12 @@ export type ValidationResult = {
 };
 
 export abstract class Entry {
-  protected static _meta: IEntryMeta;
+  public static _meta: IEntryMeta;
   protected static _instances: Map<string, Entry> = new Map();
+  
+  // Optional JSON Schema-based metadata and validator
+  protected static _metaExtended?: IEntryMetaExtended;
+  protected static _dataValidator?: ValidateFunction | null;
 
   protected _isDirty: boolean = false;
   protected _isNew: boolean = true;
@@ -52,6 +58,83 @@ export abstract class Entry {
   // Update createInstance to ensure it's called only on concrete classes
   protected static createInstance<T extends Entry>(this: new () => T): T {
     return new this();
+  }
+
+  /**
+   * Load metadata from a JSON object and set up JSON Schema validation
+   * @param metadata - JSON metadata object
+   */
+  protected static loadMetadataFromJSON(metadata: any): void {
+    // Validate and load the metadata
+    this._metaExtended = MetadataLoader.loadFromObject(metadata);
+    
+    // For backward compatibility, also set _meta from the loaded metadata
+    this._meta = this._metaExtended as IEntryMeta;
+    
+    // Create data validator if fields are defined
+    if (this._metaExtended.fields) {
+      this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
+    }
+
+    // Validate that link decorators match JSON-LD metadata (in development mode)
+    if (typeof Logger !== 'undefined') {
+      this.validateLinkDecorators();
+    }
+  }
+
+  /**
+   * Validate that @link/@linkArray decorators match JSON-LD metadata definitions
+   * Logs warnings if there are mismatches
+   */
+  protected static validateLinkDecorators(): void {
+    if (!this._metaExtended?.fields) return;
+
+    const relationships = MetadataLoader.getRelationships(this._metaExtended);
+    const linkMetadata = getLinkMetadata(this as any);
+
+    // Check that each decorator has corresponding JSON-LD metadata
+    for (const link of linkMetadata) {
+      const relationship = relationships.get(link.fieldName);
+      if (!relationship) {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} has @link decorator but no JSON-LD metadata (@type/@id)`
+        );
+      } else if (link.isArray && relationship.type !== "LinkArray") {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @linkArray but JSON-LD @type is "${relationship.type}"`
+        );
+      } else if (!link.isArray && relationship.type !== "Link") {
+        Logger.log(
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @link but JSON-LD @type is "${relationship.type}"`
+        );
+      }
+    }
+
+    // Check that each JSON-LD relationship has a decorator
+    for (const [fieldName, _relationship] of relationships) {
+      const hasDecorator = linkMetadata.some(link => link.fieldName === fieldName);
+      if (!hasDecorator) {
+        Logger.log(
+          `Warning: Field "${fieldName}" in ${this.name} has JSON-LD relationship metadata but no @link/@linkArray decorator`
+        );
+      }
+    }
+  }
+
+  /**
+   * Validate entry data using JSON Schema if configured
+   * Falls back to the abstract validate() method for custom validation
+   * @param data - The entry data to validate
+   * @returns Validation result
+   */
+  protected static validateWithSchema(data: { [key: string]: any }): ValidationResult {
+    // If extended metadata with fields is available, use JSON Schema validation
+    if (this._metaExtended?.fields && this._dataValidator !== undefined) {
+      return MetadataLoader.validateData(data, this._metaExtended);
+    }
+    
+    // Otherwise return valid (custom validation in validate() method will run)
+    return { isValid: true, errors: [] };
   }
 
   // Update the static method signatures to include static members in the constraint
@@ -251,17 +334,29 @@ export abstract class Entry {
   async save(): Promise<void> {
     if (!this._isDirty) return;
 
+    const EntryClass = this.constructor as (new () => Entry) & {
+      _meta: IEntryMeta;
+      _metaExtended?: IEntryMetaExtended;
+      _dataValidator?: ValidateFunction | null;
+      validateWithSchema(data: { [key: string]: any }): ValidationResult;
+      sort(orders: { column: number; ascending: boolean }[]): void;
+    };
+
+    // First, run JSON Schema validation if configured
+    const schemaValidation = EntryClass.validateWithSchema(this as any);
+    if (!schemaValidation.isValid) {
+      const errorMessage = schemaValidation.errors.join(", ");
+      SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Validation Error", -1);
+      throw new Error(`Schema validation failed: ${errorMessage}`);
+    }
+
+    // Then run custom validation
     const validation = this.validate();
     if (!validation.isValid) {
       const errorMessage = validation.errors.join(", ");
       SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Validation Error", -1);
       throw new Error(`Validation failed: ${errorMessage}`);
     }
-
-    const EntryClass = this.constructor as (new () => Entry) & {
-      _meta: IEntryMeta;
-      sort(orders: { column: number; ascending: boolean }[]): void;
-    };
 
     if (this._isNew) {
       await this.beforeSave();
@@ -438,9 +533,18 @@ export abstract class Entry {
       }
     }
 
-    // Validate all entries first
+    // Validate all entries first (both schema and custom validation)
     const validationErrors: string[] = [];
+    const EntryClass = this as any;
+    
     for (let i = 0; i < entries.length; i++) {
+      // JSON Schema validation first
+      const schemaValidation = EntryClass.validateWithSchema(entries[i]);
+      if (!schemaValidation.isValid) {
+        validationErrors.push(`Entry ${i + 1} (schema): ${schemaValidation.errors.join(", ")}`);
+      }
+      
+      // Custom validation
       const validation = entries[i].validate();
       if (!validation.isValid) {
         validationErrors.push(`Entry ${i + 1}: ${validation.errors.join(", ")}`);
