@@ -183,7 +183,6 @@
                 
                 const checkboxLabel = document.createElement('label');
                 checkboxLabel.textContent = option;
-                checkboxLabel.style.marginLeft = '8px';
                 
                 checkboxWrapper.appendChild(checkbox);
                 checkboxWrapper.appendChild(checkboxLabel);
@@ -446,12 +445,15 @@
         for (let i = 0; i < formElements.length; i++) {
           const element = formElements[i];
           if (element.name) {
-            if (element.tagName === 'MD-CHECKBOX' && !element.closest('.checkbox-group')) {
-              // Regular checkbox (boolean field)
-              formData[element.name] = element.checked;
-            } else if (!element.closest('.checkbox-group')) {
-              // Regular input field (not part of a checkbox group)
-              formData[element.name] = element.value;
+            const isPartOfCheckboxGroup = element.closest('.checkbox-group');
+            if (!isPartOfCheckboxGroup) {
+              if (element.tagName === 'MD-CHECKBOX') {
+                // Regular checkbox (boolean field)
+                formData[element.name] = element.checked;
+              } else {
+                // Regular input field
+                formData[element.name] = element.value;
+              }
             }
           }
         }

@@ -85,6 +85,7 @@ export class DataEntryService {
   }
   /**
    * Show a dialog for adding a new entry
+   * Note: This method is async to support fetching link options for Link/LinkArray fields
    * @param EntryClass - The Entry class to create
    */
   static async showAddEntryDialog<T extends Entry>(
@@ -110,6 +111,7 @@ export class DataEntryService {
 
   /**
    * Show a dialog for editing an existing entry
+   * Note: This method is async to support fetching link options for Link/LinkArray fields
    * @param EntryClass - The Entry class to edit
    */
   static async showEditEntryDialog<T extends Entry>(
