@@ -66,6 +66,29 @@
         width: 100%;
       }
       
+      .checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        padding: 4px;
+      }
+      
+      .checkbox-item label {
+        margin: 0;
+        margin-left: 8px;
+        font-weight: normal;
+      }
+      
       .form-actions {
         display: flex;
         justify-content: flex-end;
@@ -108,6 +131,7 @@
       // Note: Data is JSON-serialized by Google Apps Script which handles proper escaping
       const entryMeta = <?!= entryMeta ?>;
       const entryData = <?!= entryData ?>;
+      const linkOptions = <?!= linkOptions ?>;
       const isEdit = <?= isEdit ?>;
       const entryTypeName = '<?= entryTypeName ?>';
       const rowNumber = <?= typeof rowNumber !== 'undefined' ? rowNumber : 'null' ?>;
@@ -133,7 +157,70 @@
           // Use JSON Schema field definition if available, otherwise fall back to heuristics
           const fieldType = fieldDef ? getFieldTypeFromSchema(fieldDef) : getFieldType(column, value);
           
-          if (fieldType === 'select' && fieldDef?.enum) {
+          // Check if this is a Link or LinkArray field
+          if (fieldDef?.['@type'] === 'Link' || fieldDef?.['@type'] === 'LinkArray') {
+            const isLinkArray = fieldDef['@type'] === 'LinkArray';
+            const options = linkOptions[column] || [];
+            
+            if (isLinkArray) {
+              // Multi-select for LinkArray fields
+              // For LinkArray, we'll use checkboxes since md-filled-select doesn't support multiple selection well
+              const separator = fieldDef.separator || ',';
+              const currentValues = value ? String(value).split(separator).map(v => v.trim()) : [];
+              
+              const checkboxContainer = document.createElement('div');
+              checkboxContainer.className = 'checkbox-group';
+              checkboxContainer.setAttribute('data-name', column);
+              checkboxContainer.setAttribute('data-separator', separator);
+              
+              options.forEach(option => {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'checkbox-item';
+                
+                const checkbox = document.createElement('md-checkbox');
+                checkbox.value = option;
+                checkbox.checked = currentValues.includes(option);
+                
+                const checkboxLabel = document.createElement('label');
+                checkboxLabel.textContent = option;
+                checkboxLabel.style.marginLeft = '8px';
+                
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(checkboxLabel);
+                checkboxContainer.appendChild(checkboxWrapper);
+              });
+              
+              fieldDiv.appendChild(checkboxContainer);
+            } else {
+              // Single-select for Link fields
+              const select = document.createElement('md-filled-select');
+              select.setAttribute('name', column);
+              if (fieldDef?.required) {
+                select.setAttribute('required', 'true');
+              }
+              
+              // Add empty option if not required
+              if (!fieldDef?.required) {
+                const emptyOption = document.createElement('md-select-option');
+                emptyOption.value = '';
+                emptyOption.textContent = '-- Select --';
+                select.appendChild(emptyOption);
+              }
+              
+              // Add options from linked entries
+              options.forEach(option => {
+                const selectOption = document.createElement('md-select-option');
+                selectOption.value = option;
+                selectOption.textContent = option;
+                if (value === option) {
+                  selectOption.selected = true;
+                }
+                select.appendChild(selectOption);
+              });
+              
+              fieldDiv.appendChild(select);
+            }
+          } else if (fieldType === 'select' && fieldDef?.enum) {
             // Dropdown for enum fields
             const select = document.createElement('md-filled-select');
             select.setAttribute('name', column);
@@ -338,12 +425,32 @@
         const formData = {};
         const formElements = this.elements;
         
+        // First, collect checkbox groups (LinkArray fields)
+        const checkboxGroups = document.querySelectorAll('.checkbox-group');
+        checkboxGroups.forEach(group => {
+          const fieldName = group.getAttribute('data-name');
+          const separator = group.getAttribute('data-separator') || ',';
+          const checkboxes = group.querySelectorAll('md-checkbox');
+          const selectedValues = [];
+          
+          checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+              selectedValues.push(checkbox.value);
+            }
+          });
+          
+          formData[fieldName] = selectedValues.join(separator);
+        });
+        
+        // Then collect regular form elements
         for (let i = 0; i < formElements.length; i++) {
           const element = formElements[i];
           if (element.name) {
-            if (element.tagName === 'MD-CHECKBOX') {
+            if (element.tagName === 'MD-CHECKBOX' && !element.closest('.checkbox-group')) {
+              // Regular checkbox (boolean field)
               formData[element.name] = element.checked;
-            } else {
+            } else if (!element.closest('.checkbox-group')) {
+              // Regular input field (not part of a checkbox group)
               formData[element.name] = element.value;
             }
           }

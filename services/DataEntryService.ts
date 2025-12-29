@@ -1,5 +1,5 @@
 import { Entry } from "../base/Entry";
-import { IEntryMetaExtended } from "../base/MetadataLoader";
+import { IEntryMetaExtended, MetadataLoader } from "../base/MetadataLoader";
 import { SheetValue } from "./SheetService";
 
 // Type for Entry constructor with extended metadata
@@ -31,20 +31,76 @@ export class DataEntryService {
   private static getEntryType(name: string): EntryConstructor | undefined {
     return this.entryTypeRegistry.get(name);
   }
+
+  /**
+   * Fetch link field options for a given Entry class
+   * @param EntryClass - The Entry class to fetch options from
+   * @param targetField - The field to use as the value (default: "name")
+   * @returns Array of option values
+   */
+  private static async fetchLinkOptions(
+    EntryClass: EntryConstructor,
+    targetField: string = "name"
+  ): Promise<string[]> {
+    try {
+      // Get all entries of the target type
+      const entries = await EntryClass.getAll();
+      
+      // Extract the target field values
+      const options = entries
+        .map((entry) => (entry as any)[targetField])
+        .filter((value) => value !== null && value !== undefined && value !== "");
+      
+      return options;
+    } catch (error) {
+      Logger.log(`Error fetching link options for ${EntryClass.name}: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Prepare link options for all Link/LinkArray fields in metadata
+   * @param metadata - The entry metadata with field definitions
+   * @returns Object mapping field names to their options
+   */
+  private static async prepareLinkOptions(
+    metadata: IEntryMetaExtended
+  ): Promise<{ [fieldName: string]: string[] }> {
+    const linkOptions: { [fieldName: string]: string[] } = {};
+    const relationships = MetadataLoader.getRelationships(metadata);
+
+    for (const [fieldName, relationship] of relationships.entries()) {
+      // Get the target Entry class from registry
+      const TargetClass = this.getEntryType(relationship.targetClass);
+      if (TargetClass) {
+        const options = await this.fetchLinkOptions(TargetClass, relationship.targetField);
+        linkOptions[fieldName] = options;
+      } else {
+        Logger.log(`Warning: Target class ${relationship.targetClass} not found in registry for field ${fieldName}`);
+        linkOptions[fieldName] = [];
+      }
+    }
+
+    return linkOptions;
+  }
   /**
    * Show a dialog for adding a new entry
    * @param EntryClass - The Entry class to create
    */
-  static showAddEntryDialog<T extends Entry>(
+  static async showAddEntryDialog<T extends Entry>(
     EntryClass: (new () => T) & { _metaExtended: IEntryMetaExtended }
-  ): void {
+  ): Promise<void> {
     if (!EntryClass._metaExtended) {
       throw new Error(`Entry class ${EntryClass.name} does not have extended metadata. Please use loadMetadataFromJSON().`);
     }
 
+    // Fetch link options for Link/LinkArray fields
+    const linkOptions = await this.prepareLinkOptions(EntryClass._metaExtended);
+
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
     template.entryMeta = JSON.stringify(EntryClass._metaExtended);
     template.entryData = JSON.stringify({}); // Empty data for new entry
+    template.linkOptions = JSON.stringify(linkOptions);
     template.isEdit = false;
     template.entryTypeName = EntryClass.name;
 
@@ -100,9 +156,13 @@ export class DataEntryService {
       entryData[col] = (entry as any)[col];
     });
 
+    // Fetch link options for Link/LinkArray fields
+    const linkOptions = await this.prepareLinkOptions(EntryClass._metaExtended);
+
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
     template.entryMeta = JSON.stringify(EntryClass._metaExtended);
     template.entryData = JSON.stringify(entryData);
+    template.linkOptions = JSON.stringify(linkOptions);
     template.isEdit = true;
     template.entryTypeName = EntryClass.name;
     template.rowNumber = row;
