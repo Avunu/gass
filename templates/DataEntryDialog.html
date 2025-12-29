@@ -172,10 +172,10 @@
               textField.setAttribute('step', '1');
             }
             if (fieldDef?.minimum !== undefined) {
-              textField.setAttribute('min', fieldDef.minimum);
+              textField.setAttribute('min', String(fieldDef.minimum));
             }
             if (fieldDef?.maximum !== undefined) {
-              textField.setAttribute('max', fieldDef.maximum);
+              textField.setAttribute('max', String(fieldDef.maximum));
             }
             textField.value = value;
             if (fieldDef?.required) {
@@ -220,10 +220,10 @@
               textField.setAttribute('required', 'true');
             }
             if (fieldDef?.minLength) {
-              textField.setAttribute('minlength', fieldDef.minLength);
+              textField.setAttribute('minlength', String(fieldDef.minLength));
             }
             if (fieldDef?.maxLength) {
-              textField.setAttribute('maxlength', fieldDef.maxLength);
+              textField.setAttribute('maxlength', String(fieldDef.maxLength));
             }
             if (fieldDef?.pattern) {
               textField.setAttribute('pattern', fieldDef.pattern);
@@ -259,8 +259,13 @@
           if (fieldDef.format === 'date-time') return 'datetime';
         }
         
-        // Check type
-        const type = Array.isArray(fieldDef.type) ? fieldDef.type[0] : fieldDef.type;
+        // Check type - handle both single type and array of types
+        let type = fieldDef.type;
+        if (Array.isArray(type)) {
+          // For array types, prioritize non-null types
+          type = type.find(t => t !== 'null') || type[0];
+        }
+        
         if (type === 'boolean') return 'boolean';
         if (type === 'integer') return 'integer';
         if (type === 'number') return 'number';
