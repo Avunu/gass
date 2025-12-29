@@ -53,6 +53,8 @@ export class MetadataLoader {
       allErrors: true,
       verbose: true,
       strict: true,
+      strictTypes: false,
+      allowUnionTypes: true,
       validateFormats: true,
     });
 
@@ -74,8 +76,11 @@ export class MetadataLoader {
   static loadFromObject(metadata: any): IEntryMetaExtended {
     this.init();
 
+    // Strip $schema property if present (it's for IDE support, not part of metadata)
+    const { $schema, ...metadataToValidate } = metadata;
+
     // Validate against schema
-    const valid = this.metadataValidator(metadata);
+    const valid = this.metadataValidator(metadataToValidate);
     if (!valid) {
       const errors = this.metadataValidator.errors
         ?.map((err) => `${err.instancePath} ${err.message}`)
@@ -84,7 +89,7 @@ export class MetadataLoader {
     }
 
     // At this point, we know metadata conforms to IEntryMetaExtended
-    const validatedMeta = metadata as IEntryMetaExtended;
+    const validatedMeta = metadataToValidate as IEntryMetaExtended;
 
     // Additional validation: ensure defaultSort columns exist in columns array
     if (validatedMeta.defaultSort) {

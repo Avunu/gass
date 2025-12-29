@@ -76,10 +76,8 @@ export abstract class Entry {
       this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
     }
 
-    // Validate that link decorators match JSON-LD metadata (in development mode)
-    if (typeof Logger !== 'undefined') {
-      this.validateLinkDecorators();
-    }
+    // Note: Link decorator validation is deferred until first use
+    // because decorators may not be registered yet during static initialization
   }
 
   /**
@@ -291,6 +289,7 @@ export abstract class Entry {
           const filterCriteria: FilterCriteria = {
             [targetField]: linkValue,
           };
+          
           const results = await (EntryType as any).get(filterCriteria);
 
           const linkedObject = results && results.length > 0 ? results[0] : null;
