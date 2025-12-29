@@ -11,12 +11,20 @@
   },
   "scripts": {
     "build": "rolldown --config rollup.config.js",
+    "test": "npm run test:metadata && npm run test:compat",
+    "test:metadata": "tsx tests/metadata-test.ts",
+    "test:compat": "tsx tests/backward-compat-test.ts",
     "upgrade": "npx npm-check-updates -u && npm install"
   },
   "type": "module",
   "version": "0.0.1",
   "devDependencies": {
     "@types/google-apps-script": "^2",
-    "rolldown": "^1.0.0-beta.54"
+    "@types/node": "^25.0.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "rolldown": "^1.0.0-beta.54",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0"
   }
 }
