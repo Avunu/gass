@@ -18,6 +18,7 @@
     "**/*.ts"
   ],
   "exclude": [
+    "examples",
     "node_modules"
   ]
 }

@@ -1,5 +1,5 @@
 import { Entry, ValidationResult } from "../base/Entry";
-import { SheetValue } from "../services/SheetService";
+// import { SheetValue } from "../services/SheetService";
 // Import the JSON metadata
 import userMetadata from "./User.meta.json";
 
