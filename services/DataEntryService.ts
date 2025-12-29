@@ -1,9 +1,10 @@
-import { Entry, IEntryMeta } from "../base/Entry";
+import { Entry } from "../base/Entry";
+import { IEntryMetaExtended } from "../base/MetadataLoader";
 import { SheetValue } from "./SheetService";
 
-// Type for Entry constructor
+// Type for Entry constructor with extended metadata
 type EntryConstructor = (new () => Entry) & {
-  _meta: IEntryMeta;
+  _metaExtended: IEntryMetaExtended;
   _instances: Map<string, Entry>;
 };
 
@@ -35,10 +36,14 @@ export class DataEntryService {
    * @param EntryClass - The Entry class to create
    */
   static showAddEntryDialog<T extends Entry>(
-    EntryClass: (new () => T) & { _meta: IEntryMeta }
+    EntryClass: (new () => T) & { _metaExtended: IEntryMetaExtended }
   ): void {
+    if (!EntryClass._metaExtended) {
+      throw new Error(`Entry class ${EntryClass.name} does not have extended metadata. Please use loadMetadataFromJSON().`);
+    }
+
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
-    template.entryMeta = JSON.stringify(EntryClass._meta);
+    template.entryMeta = JSON.stringify(EntryClass._metaExtended);
     template.entryData = JSON.stringify({}); // Empty data for new entry
     template.isEdit = false;
     template.entryTypeName = EntryClass.name;
@@ -52,8 +57,12 @@ export class DataEntryService {
    * @param EntryClass - The Entry class to edit
    */
   static async showEditEntryDialog<T extends Entry>(
-    EntryClass: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> }
+    EntryClass: (new () => T) & { _metaExtended: IEntryMetaExtended; _instances: Map<string, Entry> }
   ): Promise<void> {
+    if (!EntryClass._metaExtended) {
+      throw new Error(`Entry class ${EntryClass.name} does not have extended metadata. Please use loadMetadataFromJSON().`);
+    }
+
     // Get the currently selected row
     const sheet = SpreadsheetApp.getActiveSheet();
     const activeRange = sheet.getActiveRange();
@@ -61,13 +70,13 @@ export class DataEntryService {
 
     // Check if we're on the correct sheet
     const sheetId = sheet.getSheetId();
-    if (sheetId !== EntryClass._meta.sheetId) {
+    if (sheetId !== EntryClass._metaExtended.sheetId) {
       SpreadsheetApp.getUi().alert("Please select a row in the correct sheet");
       return;
     }
 
     // Check if it's the header row
-    if (row === EntryClass._meta.headerRow) {
+    if (row === EntryClass._metaExtended.headerRow) {
       SpreadsheetApp.getUi().alert("Cannot edit the header row");
       return;
     }
@@ -75,9 +84,9 @@ export class DataEntryService {
     // Get the row data
     const fullRowRange = sheet.getRange(
       row,
-      EntryClass._meta.dataStartColumn,
+      EntryClass._metaExtended.dataStartColumn,
       1,
-      EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
+      EntryClass._metaExtended.dataEndColumn - EntryClass._metaExtended.dataStartColumn + 1
     );
     const rowData = fullRowRange.getValues()[0];
 
@@ -87,12 +96,12 @@ export class DataEntryService {
 
     // Convert entry to data object
     const entryData: { [key: string]: SheetValue } = {};
-    EntryClass._meta.columns.forEach((col) => {
+    EntryClass._metaExtended.columns.forEach((col) => {
       entryData[col] = (entry as any)[col];
     });
 
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
-    template.entryMeta = JSON.stringify(EntryClass._meta);
+    template.entryMeta = JSON.stringify(EntryClass._metaExtended);
     template.entryData = JSON.stringify(entryData);
     template.isEdit = true;
     template.entryTypeName = EntryClass.name;
@@ -122,13 +131,17 @@ export class DataEntryService {
         throw new Error(`Entry type not found: ${entryTypeName}`);
       }
 
+      if (!EntryClass._metaExtended) {
+        throw new Error(`Entry type ${entryTypeName} does not have extended metadata`);
+      }
+
       // Create or load the entry
       const entry = new EntryClass();
 
       // If editing, load the existing row data first
       if (isEdit && rowNumber) {
         const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().find(
-          (s) => s.getSheetId() === EntryClass._meta.sheetId
+          (s) => s.getSheetId() === EntryClass._metaExtended.sheetId
         );
         if (!sheet) {
           throw new Error("Sheet not found");
@@ -136,16 +149,16 @@ export class DataEntryService {
 
         const fullRowRange = sheet.getRange(
           rowNumber,
-          EntryClass._meta.dataStartColumn,
+          EntryClass._metaExtended.dataStartColumn,
           1,
-          EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
+          EntryClass._metaExtended.dataEndColumn - EntryClass._metaExtended.dataStartColumn + 1
         );
         const rowData = fullRowRange.getValues()[0];
         entry.fromRow(rowData, rowNumber);
       }
 
       // Update entry with form data
-      EntryClass._meta.columns.forEach((col) => {
+      EntryClass._metaExtended.columns.forEach((col) => {
         if (entryData.hasOwnProperty(col)) {
           (entry as any)[col] = entryData[col];
         }

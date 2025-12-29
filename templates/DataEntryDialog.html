@@ -62,6 +62,10 @@
         width: 100%;
       }
       
+      md-filled-select {
+        width: 100%;
+      }
+      
       .form-actions {
         display: flex;
         justify-content: flex-end;
@@ -114,40 +118,116 @@
         
         entryMeta.columns.forEach(column => {
           const value = entryData[column] || '';
+          const fieldDef = entryMeta.fields?.[column];
           
           const fieldDiv = document.createElement('div');
           fieldDiv.className = 'form-field';
           
           const label = document.createElement('label');
-          label.textContent = formatColumnName(column);
+          label.textContent = fieldDef?.description || formatColumnName(column);
+          if (fieldDef?.required) {
+            label.textContent += ' *';
+          }
           fieldDiv.appendChild(label);
           
-          // Determine field type based on column name or value
-          const fieldType = getFieldType(column, value);
+          // Use JSON Schema field definition if available, otherwise fall back to heuristics
+          const fieldType = fieldDef ? getFieldTypeFromSchema(fieldDef) : getFieldType(column, value);
           
-          if (fieldType === 'date') {
-            // For date fields, use a regular text field with date formatting
+          if (fieldType === 'select' && fieldDef?.enum) {
+            // Dropdown for enum fields
+            const select = document.createElement('md-filled-select');
+            select.setAttribute('name', column);
+            if (fieldDef?.required) {
+              select.setAttribute('required', 'true');
+            }
+            
+            // Add options
+            fieldDef.enum.forEach(optionValue => {
+              const option = document.createElement('md-select-option');
+              option.value = optionValue;
+              option.textContent = optionValue;
+              if (value === optionValue) {
+                option.selected = true;
+              }
+              select.appendChild(option);
+            });
+            
+            fieldDiv.appendChild(select);
+          } else if (fieldType === 'date' || fieldType === 'datetime' || fieldType === 'time') {
+            // Date/time fields
             const textField = document.createElement('md-filled-text-field');
             textField.setAttribute('name', column);
-            textField.setAttribute('type', 'date');
-            textField.value = formatDateValue(value);
+            textField.setAttribute('type', fieldType === 'datetime' ? 'datetime-local' : fieldType);
+            textField.value = formatDateValue(value, fieldType);
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
             fieldDiv.appendChild(textField);
-          } else if (fieldType === 'number') {
+          } else if (fieldType === 'number' || fieldType === 'integer') {
+            // Number fields
             const textField = document.createElement('md-filled-text-field');
             textField.setAttribute('name', column);
             textField.setAttribute('type', 'number');
+            if (fieldType === 'integer') {
+              textField.setAttribute('step', '1');
+            }
+            if (fieldDef?.minimum !== undefined) {
+              textField.setAttribute('min', fieldDef.minimum);
+            }
+            if (fieldDef?.maximum !== undefined) {
+              textField.setAttribute('max', fieldDef.maximum);
+            }
             textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
             fieldDiv.appendChild(textField);
           } else if (fieldType === 'boolean') {
+            // Checkbox for boolean fields
             const checkbox = document.createElement('md-checkbox');
             checkbox.setAttribute('name', column);
             checkbox.checked = value === true || value === 'true' || value === 'TRUE';
             fieldDiv.appendChild(checkbox);
+          } else if (fieldType === 'email') {
+            // Email field
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', 'email');
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            if (fieldDef?.pattern) {
+              textField.setAttribute('pattern', fieldDef.pattern);
+            }
+            fieldDiv.appendChild(textField);
+          } else if (fieldType === 'url') {
+            // URL field
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', 'url');
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            fieldDiv.appendChild(textField);
           } else {
             // Default to text field
             const textField = document.createElement('md-filled-text-field');
             textField.setAttribute('name', column);
             textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            if (fieldDef?.minLength) {
+              textField.setAttribute('minlength', fieldDef.minLength);
+            }
+            if (fieldDef?.maxLength) {
+              textField.setAttribute('maxlength', fieldDef.maxLength);
+            }
+            if (fieldDef?.pattern) {
+              textField.setAttribute('pattern', fieldDef.pattern);
+            }
             fieldDiv.appendChild(textField);
           }
           
@@ -163,7 +243,32 @@
           .trim();
       }
       
-      // Determine field type based on column name or value
+      // Get field type from JSON Schema field definition
+      function getFieldTypeFromSchema(fieldDef) {
+        // Check for enum first
+        if (fieldDef.enum && fieldDef.enum.length > 0) {
+          return 'select';
+        }
+        
+        // Check format
+        if (fieldDef.format) {
+          if (fieldDef.format === 'email') return 'email';
+          if (fieldDef.format === 'uri' || fieldDef.format === 'url') return 'url';
+          if (fieldDef.format === 'date') return 'date';
+          if (fieldDef.format === 'time') return 'time';
+          if (fieldDef.format === 'date-time') return 'datetime';
+        }
+        
+        // Check type
+        const type = Array.isArray(fieldDef.type) ? fieldDef.type[0] : fieldDef.type;
+        if (type === 'boolean') return 'boolean';
+        if (type === 'integer') return 'integer';
+        if (type === 'number') return 'number';
+        
+        return 'text';
+      }
+      
+      // Determine field type based on column name or value (fallback for legacy metadata)
       function getFieldType(column, value) {
         const lowerColumn = column.toLowerCase();
         
@@ -185,14 +290,39 @@
       }
       
       // Format date value for input
-      function formatDateValue(value) {
+      function formatDateValue(value, fieldType) {
         if (!value) return '';
+        
         if (value instanceof Date || typeof value === 'object') {
           const date = new Date(value);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            if (fieldType === 'datetime') {
+              // Format as YYYY-MM-DDTHH:MM for datetime-local input
+              return date.toISOString().slice(0, 16);
+            } else if (fieldType === 'time') {
+              // Format as HH:MM
+              return date.toTimeString().slice(0, 5);
+            } else {
+              // Format as YYYY-MM-DD for date input
+              return date.toISOString().split('T')[0];
+            }
           }
         }
+        
+        // Try to parse as ISO string
+        if (typeof value === 'string') {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            if (fieldType === 'datetime') {
+              return date.toISOString().slice(0, 16);
+            } else if (fieldType === 'time') {
+              return date.toTimeString().slice(0, 5);
+            } else {
+              return date.toISOString().split('T')[0];
+            }
+          }
+        }
+        
         return value;
       }
       
