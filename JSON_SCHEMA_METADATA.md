@@ -59,7 +59,7 @@ import metadata from "./MyEntity.meta.json";
 export class MyEntity extends Entry {
   // Load metadata from JSON
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
 
   static override _instances = new Map<string, MyEntity>();
@@ -309,7 +309,7 @@ import metadata from "./MyEntity.meta.json";
 
 export class MyEntity extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
   
   validate(): ValidationResult {
@@ -353,7 +353,7 @@ validate(): ValidationResult {
 ```typescript
 // Load metadata at runtime (useful for dynamic configurations)
 const metadata = await fetchMetadataFromAPI();
-MyEntity.loadMetadataFromJSON(metadata);
+MyEntity.loadMetadata(metadata);
 ```
 
 ## Backward Compatibility

@@ -26,7 +26,7 @@ This refactor successfully implements a JSON Schema-based metadata system for GA
 ### 3. Entry Class Enhancements (`base/Entry.ts`)
 - **Purpose:** Integrate JSON Schema validation into Entry lifecycle
 - **Features:**
-  - `loadMetadataFromJSON()` - Load metadata from JSON objects
+  - `loadMetadata()` - Load metadata from JSON objects
   - `validateWithSchema()` - Automatic JSON Schema validation
   - Enhanced `save()` method with schema validation
   - Enhanced `batchInsert()` with schema validation
@@ -175,7 +175,7 @@ class User extends Entry {
 import metadata from "./User.meta.json";
 
 class User extends Entry {
-  static { this.loadMetadataFromJSON(metadata); }
+  static { this.loadMetadata(metadata); }
   
   validate(): ValidationResult {
     // Only business logic needed

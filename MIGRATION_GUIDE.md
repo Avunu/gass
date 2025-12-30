@@ -155,7 +155,7 @@ import metadata from "./User.meta.json";
 export class User extends Entry {
   // Load metadata from JSON
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
 
   static override _instances = new Map<string, User>();

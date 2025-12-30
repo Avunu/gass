@@ -105,7 +105,7 @@ import metadata from "./MyEntity.meta.json";
 
 export class MyEntity extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
 
   static override _instances = new Map<string, MyEntity>();

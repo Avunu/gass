@@ -27,7 +27,7 @@ try {
   // Check that this metadata has no fields
   if (!loaded.fields || Object.keys(loaded.fields).length === 0) {
     console.log("✓ Metadata without fields loads but has no field definitions");
-    console.log("  - This would be rejected by Entry.loadMetadataFromJSON()");
+    console.log("  - This would be rejected by Entry.loadMetadata()");
   } else {
     console.error("✗ Unexpected: metadata has fields");
   }
@@ -53,7 +53,7 @@ try {
   
   if (Object.keys(loaded.fields || {}).length === 0) {
     console.log("✓ Metadata with empty fields object loads but has no field definitions");
-    console.log("  - This would be rejected by Entry.loadMetadataFromJSON()");
+    console.log("  - This would be rejected by Entry.loadMetadata()");
   } else {
     console.error("✗ Unexpected: metadata has fields");
   }
@@ -223,6 +223,6 @@ try {
 }
 
 console.log("\n=== JSON Schema enforcement verified ===");
-console.log("All Entry classes must use loadMetadataFromJSON() with field definitions.");
+console.log("All Entry classes must use loadMetadata() with field definitions.");
 console.log("Legacy IEntryMeta direct assignment is no longer supported.");
 

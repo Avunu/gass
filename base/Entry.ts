@@ -3,29 +3,8 @@ import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
 import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
-import { MetadataLoader, IEntryMetaExtended } from "./MetadataLoader";
+import { MetadataLoader, IEntryMeta } from "./MetadataLoader";
 import { ValidateFunction } from "ajv";
-
-export interface IEntryMeta {
-  sheetId: number;
-  columns: string[];
-  headerRow: number;
-  dataStartColumn: number;
-  dataEndColumn: number;
-  defaultSort?: {
-    column: string;
-    ascending: boolean;
-  }[];
-  filterRow?: number;
-  filterRange?: {
-    startColumn: number;
-    endColumn: number;
-  };
-  clearFiltersCell?: {
-    row: number;
-    column: number;
-  };
-}
 
 export type ValidationResult = {
   isValid: boolean;
@@ -34,16 +13,16 @@ export type ValidationResult = {
 
 export abstract class Entry {
   // JSON Schema-based metadata (required)
-  protected static _metaExtended: IEntryMetaExtended;
+  protected static _metadata: IEntryMeta;
   protected static _dataValidator: ValidateFunction | null = null;
   protected static _instances: Map<string, Entry> = new Map();
   
   // Derived _meta property for compatibility with existing code
   public static get _meta(): IEntryMeta {
-    if (!this._metaExtended) {
-      throw new Error(`Entry class ${this.name} must call loadMetadataFromJSON() in a static block before use`);
+    if (!this._metadata) {
+      throw new Error(`Entry class ${this.name} must call loadMetadata() in a static block before use`);
     }
-    return this._metaExtended as IEntryMeta;
+    return this._metadata;
   }
 
   protected _isDirty: boolean = false;
@@ -68,20 +47,20 @@ export abstract class Entry {
 
   /**
    * Load metadata from a JSON object and set up JSON Schema validation
-   * This is the ONLY way to define Entry metadata - direct assignment to _meta is not supported
+   * This is the ONLY way to define Entry metadata
    * @param metadata - JSON metadata object with JSON Schema field definitions
    */
-  protected static loadMetadataFromJSON(metadata: any): void {
+  protected static loadMetadata(metadata: any): void {
     // Validate and load the metadata
-    this._metaExtended = MetadataLoader.loadFromObject(metadata);
+    this._metadata = MetadataLoader.loadFromObject(metadata);
     
     // Create data validator from field definitions
     // All entries MUST define fields in their metadata
-    if (!this._metaExtended.fields || Object.keys(this._metaExtended.fields).length === 0) {
+    if (!this._metadata.fields || Object.keys(this._metadata.fields).length === 0) {
       throw new Error(`Entry class ${this.name} metadata must define "fields" with JSON Schema validation rules`);
     }
     
-    this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
+    this._dataValidator = MetadataLoader.createDataValidator(this._metadata);
 
     // Note: Link decorator validation is deferred until first use
     // because decorators may not be registered yet during static initialization
@@ -92,9 +71,9 @@ export abstract class Entry {
    * Logs warnings if there are mismatches
    */
   protected static validateLinkDecorators(): void {
-    if (!this._metaExtended?.fields) return;
+    if (!this._metadata?.fields) return;
 
-    const relationships = MetadataLoader.getRelationships(this._metaExtended);
+    const relationships = MetadataLoader.getRelationships(this._metadata);
     const linkMetadata = getLinkMetadata(this as any);
 
     // Check that each decorator has corresponding JSON-LD metadata
@@ -134,11 +113,11 @@ export abstract class Entry {
    */
   protected static validateWithSchema(data: { [key: string]: any }): ValidationResult {
     // All entries must have JSON Schema validation
-    if (!this._metaExtended?.fields || this._dataValidator === null) {
+    if (!this._metadata?.fields || this._dataValidator === null) {
       throw new Error(`Entry class ${this.name} must have JSON Schema fields defined in metadata`);
     }
     
-    return MetadataLoader.validateData(data, this._metaExtended);
+    return MetadataLoader.validateData(data, this._metadata);
   }
 
   // Update the static method signatures to include static members in the constraint
@@ -341,7 +320,7 @@ export abstract class Entry {
 
     const EntryClass = this.constructor as (new () => Entry) & {
       _meta: IEntryMeta;
-      _metaExtended?: IEntryMetaExtended;
+      _metadata?: IEntryMeta;
       _dataValidator?: ValidateFunction | null;
       validateWithSchema(data: { [key: string]: any }): ValidationResult;
       sort(orders: { column: number; ascending: boolean }[]): void;
@@ -439,8 +418,8 @@ export abstract class Entry {
       let value = rowData[index];
       
       // Convert empty strings to null for optional fields (those that accept null)
-      if (value === "" && EntryClass._metaExtended?.fields?.[col]) {
-        const fieldSchema = EntryClass._metaExtended.fields[col];
+      if (value === "" && EntryClass._metadata?.fields?.[col]) {
+        const fieldSchema = EntryClass._metadata.fields[col];
         const fieldType = Array.isArray(fieldSchema.type) ? fieldSchema.type : [fieldSchema.type];
         
         // If the field type includes "null", convert empty string to null

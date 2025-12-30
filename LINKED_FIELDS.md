@@ -17,7 +17,7 @@ import metadata from "./Assignment.meta.json";
 
 export class Assignment extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
   
   @link(Responsibility)
@@ -45,7 +45,7 @@ import metadata from "./Assignment.meta.json";
 
 export class Assignment extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
   
   @linkArray(Participant)
@@ -139,7 +139,7 @@ import metadata from "./Assignment.meta.json";
 
 export class Assignment extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
   
   public eventDate: Date = new Date();

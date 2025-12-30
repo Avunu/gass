@@ -9,7 +9,7 @@ import userMetadata from "./User.meta.json";
 export class User extends Entry {
   // Load metadata from JSON using the new system
   static {
-    this.loadMetadataFromJSON(userMetadata);
+    this.loadMetadata(userMetadata);
   }
 
   // Override _instances for type safety
