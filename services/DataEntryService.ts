@@ -1,10 +1,10 @@
-import { Entry } from "../base/Entry";
-import { IEntryMetaExtended, MetadataLoader } from "../base/MetadataLoader";
+import { Entry, IEntryMeta } from "../base/Entry";
+import { MetadataLoader } from "../base/MetadataLoader";
 import { SheetValue } from "./SheetService";
 
-// Type for Entry constructor with extended metadata
+// Type for Entry constructor with JSON Schema metadata
 type EntryConstructor = (new () => Entry) & {
-  _metaExtended: IEntryMetaExtended;
+  _meta: IEntryMeta;
   _instances: Map<string, Entry>;
 };
 
@@ -64,7 +64,7 @@ export class DataEntryService {
    * @returns Object mapping field names to their options
    */
   private static async prepareLinkOptions(
-    metadata: IEntryMetaExtended
+    metadata: IEntryMeta
   ): Promise<{ [fieldName: string]: string[] }> {
     const linkOptions: { [fieldName: string]: string[] } = {};
     const relationships = MetadataLoader.getRelationships(metadata);
@@ -89,17 +89,17 @@ export class DataEntryService {
    * @param EntryClass - The Entry class to create
    */
   static async showAddEntryDialog<T extends Entry>(
-    EntryClass: (new () => T) & { _metaExtended: IEntryMetaExtended }
+    EntryClass: (new () => T) & { _meta: IEntryMeta }
   ): Promise<void> {
-    if (!EntryClass._metaExtended) {
-      throw new Error(`Entry class ${EntryClass.name} does not have extended metadata. Please use loadMetadataFromJSON().`);
+    if (!EntryClass._meta) {
+      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please use loadMetadata() in a static block.`);
     }
 
     // Fetch link options for Link/LinkArray fields
-    const linkOptions = await this.prepareLinkOptions(EntryClass._metaExtended);
+    const linkOptions = await this.prepareLinkOptions(EntryClass._meta);
 
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
-    template.entryMeta = JSON.stringify(EntryClass._metaExtended);
+    template.entryMeta = JSON.stringify(EntryClass._meta);
     template.entryData = JSON.stringify({}); // Empty data for new entry
     template.linkOptions = JSON.stringify(linkOptions);
     template.isEdit = false;
@@ -115,10 +115,10 @@ export class DataEntryService {
    * @param EntryClass - The Entry class to edit
    */
   static async showEditEntryDialog<T extends Entry>(
-    EntryClass: (new () => T) & { _metaExtended: IEntryMetaExtended; _instances: Map<string, Entry> }
+    EntryClass: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> }
   ): Promise<void> {
-    if (!EntryClass._metaExtended) {
-      throw new Error(`Entry class ${EntryClass.name} does not have extended metadata. Please use loadMetadataFromJSON().`);
+    if (!EntryClass._meta) {
+      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please use loadMetadata() in a static block.`);
     }
 
     // Get the currently selected row
@@ -128,13 +128,13 @@ export class DataEntryService {
 
     // Check if we're on the correct sheet
     const sheetId = sheet.getSheetId();
-    if (sheetId !== EntryClass._metaExtended.sheetId) {
+    if (sheetId !== EntryClass._meta.sheetId) {
       SpreadsheetApp.getUi().alert("Please select a row in the correct sheet");
       return;
     }
 
     // Check if it's the header row
-    if (row === EntryClass._metaExtended.headerRow) {
+    if (row === EntryClass._meta.headerRow) {
       SpreadsheetApp.getUi().alert("Cannot edit the header row");
       return;
     }
@@ -142,9 +142,9 @@ export class DataEntryService {
     // Get the row data
     const fullRowRange = sheet.getRange(
       row,
-      EntryClass._metaExtended.dataStartColumn,
+      EntryClass._meta.dataStartColumn,
       1,
-      EntryClass._metaExtended.dataEndColumn - EntryClass._metaExtended.dataStartColumn + 1
+      EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
     );
     const rowData = fullRowRange.getValues()[0];
 
@@ -154,15 +154,15 @@ export class DataEntryService {
 
     // Convert entry to data object
     const entryData: { [key: string]: SheetValue } = {};
-    EntryClass._metaExtended.columns.forEach((col) => {
+    EntryClass._meta.columns.forEach((col) => {
       entryData[col] = (entry as any)[col];
     });
 
     // Fetch link options for Link/LinkArray fields
-    const linkOptions = await this.prepareLinkOptions(EntryClass._metaExtended);
+    const linkOptions = await this.prepareLinkOptions(EntryClass._meta);
 
     const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
-    template.entryMeta = JSON.stringify(EntryClass._metaExtended);
+    template.entryMeta = JSON.stringify(EntryClass._meta);
     template.entryData = JSON.stringify(entryData);
     template.linkOptions = JSON.stringify(linkOptions);
     template.isEdit = true;
@@ -193,8 +193,8 @@ export class DataEntryService {
         throw new Error(`Entry type not found: ${entryTypeName}`);
       }
 
-      if (!EntryClass._metaExtended) {
-        throw new Error(`Entry type ${entryTypeName} does not have extended metadata`);
+      if (!EntryClass._meta) {
+        throw new Error(`Entry type ${entryTypeName} does not have metadata`);
       }
 
       // Create or load the entry
@@ -203,7 +203,7 @@ export class DataEntryService {
       // If editing, load the existing row data first
       if (isEdit && rowNumber) {
         const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().find(
-          (s) => s.getSheetId() === EntryClass._metaExtended.sheetId
+          (s) => s.getSheetId() === EntryClass._meta.sheetId
         );
         if (!sheet) {
           throw new Error("Sheet not found");
@@ -211,16 +211,16 @@ export class DataEntryService {
 
         const fullRowRange = sheet.getRange(
           rowNumber,
-          EntryClass._metaExtended.dataStartColumn,
+          EntryClass._meta.dataStartColumn,
           1,
-          EntryClass._metaExtended.dataEndColumn - EntryClass._metaExtended.dataStartColumn + 1
+          EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
         );
         const rowData = fullRowRange.getValues()[0];
         entry.fromRow(rowData, rowNumber);
       }
 
       // Update entry with form data
-      EntryClass._metaExtended.columns.forEach((col) => {
+      EntryClass._meta.columns.forEach((col) => {
         if (entryData.hasOwnProperty(col)) {
           (entry as any)[col] = entryData[col];
         }
