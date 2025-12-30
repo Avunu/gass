@@ -11,9 +11,9 @@
   },
   "scripts": {
     "build": "rolldown --config rollup.config.js",
-    "test": "npm run test:metadata && npm run test:compat",
+    "test": "npm run test:metadata && npm run test:required",
     "test:metadata": "tsx tests/metadata-test.ts",
-    "test:compat": "tsx tests/backward-compat-test.ts",
+    "test:required": "tsx tests/json-schema-required-test.ts",
     "upgrade": "npx npm-check-updates -u && npm install"
   },
   "type": "module",

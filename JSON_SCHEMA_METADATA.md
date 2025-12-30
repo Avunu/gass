@@ -59,7 +59,7 @@ import metadata from "./MyEntity.meta.json";
 export class MyEntity extends Entry {
   // Load metadata from JSON
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
 
   static override _instances = new Map<string, MyEntity>();
@@ -246,11 +246,11 @@ The following formats are supported through `ajv-formats`:
 }
 ```
 
-## Migration Guide
+## Migration from Older Versions
 
-### From Old IEntryMeta to JSON Schema
+If you're migrating from an older version of GASS that used the traditional IEntryMeta approach, you must now use JSON Schema metadata.
 
-#### Before (TypeScript)
+### Old Approach (No Longer Supported)
 
 ```typescript
 const MY_ENTITY_META: IEntryMeta = {
@@ -277,7 +277,7 @@ export class MyEntity extends Entry {
 }
 ```
 
-#### After (JSON + TypeScript)
+### Current Approach (Required)
 
 **MyEntity.meta.json:**
 ```json
@@ -309,7 +309,7 @@ import metadata from "./MyEntity.meta.json";
 
 export class MyEntity extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
   
   validate(): ValidationResult {
@@ -319,6 +319,8 @@ export class MyEntity extends Entry {
   }
 }
 ```
+
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed migration instructions.
 
 ## Advanced Usage
 
@@ -351,7 +353,7 @@ validate(): ValidationResult {
 ```typescript
 // Load metadata at runtime (useful for dynamic configurations)
 const metadata = await fetchMetadataFromAPI();
-MyEntity.loadMetadataFromJSON(metadata);
+MyEntity.loadMetadata(metadata);
 ```
 
 ## Backward Compatibility

@@ -56,9 +56,7 @@ import {
 
 ### 2. Create entry types
 
-You can create entry types using either the traditional TypeScript approach or the new JSON Schema approach.
-
-#### Option A: JSON Schema Approach (Recommended)
+All entry types must use JSON Schema-based metadata with field validation rules.
 
 Create a `.meta.json` file with your metadata and validation rules:
 
@@ -73,6 +71,10 @@ Create a `.meta.json` file with your metadata and validation rules:
   "columns": ["id", "name", "email", "phone", "status"],
   "defaultSort": [{ "column": "name", "ascending": true }],
   "fields": {
+    "id": {
+      "type": "string",
+      "required": true
+    },
     "name": {
       "type": "string",
       "required": true,
@@ -83,6 +85,10 @@ Create a `.meta.json` file with your metadata and validation rules:
       "type": "string",
       "required": true,
       "format": "email"
+    },
+    "phone": {
+      "type": "string",
+      "pattern": "^[0-9]{3}-[0-9]{3}-[0-9]{4}$"
     },
     "status": {
       "type": "string",
@@ -99,7 +105,7 @@ import metadata from "./MyEntity.meta.json";
 
 export class MyEntity extends Entry {
   static {
-    this.loadMetadataFromJSON(metadata);
+    this.loadMetadata(metadata);
   }
 
   static override _instances = new Map<string, MyEntity>();
@@ -123,49 +129,6 @@ export class MyEntity extends Entry {
 ```
 
 See [JSON_SCHEMA_METADATA.md](./JSON_SCHEMA_METADATA.md) for complete documentation.
-
-#### Option B: Traditional TypeScript Approach
-
-Extend the base `Entry` class for your specific entities:
-
-```typescript
-import { Entry, IEntryMeta, ValidationResult } from "./lib/base/Entry";
-
-const MY_ENTITY_META: IEntryMeta = {
-  sheetId: 123456789,
-  headerRow: 1,
-  dataStartColumn: 1,
-  dataEndColumn: 5,
-  columns: ["id", "name", "email", "phone", "status"],
-  defaultSort: [{ column: "name", ascending: true }],
-};
-
-export class MyEntity extends Entry {
-  static override _meta = MY_ENTITY_META;
-  static override _instances = new Map<string, MyEntity>();
-
-  public id: string = "";
-  public name: string = "";
-  public email: string = "";
-  public phone: string = "";
-  public status: string = "";
-
-  getCacheKey(): string {
-    return this.id;
-  }
-
-  validate(): ValidationResult {
-    const errors: string[] = [];
-    if (!this.name) errors.push("Name is required");
-    if (!this.email) errors.push("Email is required");
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  }
-}
-```
 
 ### 3. Initialize the registry
 
