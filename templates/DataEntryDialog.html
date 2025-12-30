@@ -384,12 +384,17 @@
       function addChip(chipsDisplay, value, hiddenInput, separator) {
         const chip = document.createElement('div');
         chip.className = 'chip';
-        chip.textContent = value;
+        chip.setAttribute('data-value', value);
+        
+        // Add text span for the value
+        const textSpan = document.createElement('span');
+        textSpan.textContent = value;
+        chip.appendChild(textSpan);
         
         // Add remove button
         const removeBtn = document.createElement('span');
         removeBtn.className = 'chip-remove';
-        removeBtn.innerHTML = '&times;';
+        removeBtn.textContent = '×';
         removeBtn.onclick = function() {
           // Remove chip
           chip.remove();
@@ -407,10 +412,7 @@
       // Function to update hidden input value from chips
       function updateHiddenInput(chipsDisplay, hiddenInput, separator) {
         const chips = chipsDisplay.querySelectorAll('.chip');
-        const values = Array.from(chips).map(chip => {
-          // Get text content without the remove button
-          return chip.childNodes[0].textContent.trim();
-        });
+        const values = Array.from(chips).map(chip => chip.getAttribute('data-value'));
         hiddenInput.value = values.join(separator);
       }
       
