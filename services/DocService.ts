@@ -13,6 +13,13 @@ interface DocTemplateData {
   [key: string]: TemplateValue;
 }
 
+interface PageMargins {
+  top?: number;    // in points (1 inch = 72 points)
+  bottom?: number; // in points
+  left?: number;   // in points
+  right?: number;  // in points
+}
+
 export class DocService {
   private static isDialogOpen = false;
   private static readonly TEMPLATE_DIR = "src/templates";
@@ -21,6 +28,7 @@ export class DocService {
     templateName: string,
     data: DocTemplateData,
     filename: string,
+    margins?: PageMargins,
   ): Promise<GoogleAppsScript.Drive.File> {
     // Show processing modal
     this.showProcessingModal();
@@ -36,7 +44,7 @@ export class DocService {
       const processedHtml = this.processTemplate(template, data);
 
       // Create new doc
-      const doc = this.createDocument(filename, processedHtml);
+      const doc = this.createDocument(filename, processedHtml, margins);
 
       // Update modal with success message
       this.updateModalWithSuccess(doc);
@@ -76,13 +84,26 @@ export class DocService {
     return template.evaluate().getContent();
   }
 
-  private static createDocument(filename: string, content: string): GoogleAppsScript.Drive.File {
+  private static createDocument(
+    filename: string,
+    content: string,
+    margins?: PageMargins,
+  ): GoogleAppsScript.Drive.File {
     // Create new document
     const doc = DocumentApp.create(filename);
     const docId = doc.getId();
 
     // Clear the document since we'll be replacing content
-    doc.getBody().clear();
+    const body = doc.getBody();
+    body.clear();
+
+    // Apply margins if provided
+    if (margins) {
+      if (margins.top !== undefined) body.setMarginTop(margins.top);
+      if (margins.bottom !== undefined) body.setMarginBottom(margins.bottom);
+      if (margins.left !== undefined) body.setMarginLeft(margins.left);
+      if (margins.right !== undefined) body.setMarginRight(margins.right);
+    }
 
     // Create a temporary HTML file
     const htmlFile = DriveApp.createFile("temp.html", content, "text/html");
