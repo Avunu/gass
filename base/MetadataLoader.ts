@@ -1,13 +1,30 @@
 import Ajv, { ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import { IEntryMeta } from "./Entry";
 import entryMetaSchema from "../types/entry-meta.schema.json";
 
 /**
- * Extended metadata interface that includes field-level validation rules
+ * Entry metadata interface with field-level validation rules
  * and JSON-LD relationship definitions
  */
-export interface IEntryMetaExtended extends IEntryMeta {
+export interface IEntryMeta {
+  sheetId: number;
+  columns: string[];
+  headerRow: number;
+  dataStartColumn: number;
+  dataEndColumn: number;
+  defaultSort?: {
+    column: string;
+    ascending: boolean;
+  }[];
+  filterRow?: number;
+  filterRange?: {
+    startColumn: number;
+    endColumn: number;
+  };
+  clearFiltersCell?: {
+    row: number;
+    column: number;
+  };
   "@context"?: {
     "@vocab"?: string;
     [key: string]: any;
@@ -73,7 +90,7 @@ export class MetadataLoader {
    * @returns Validated metadata
    * @throws Error if validation fails
    */
-  static loadFromObject(metadata: any): IEntryMetaExtended {
+  static loadFromObject(metadata: any): IEntryMeta {
     this.init();
 
     // Strip $schema property if present (it's for IDE support, not part of metadata)
@@ -88,8 +105,8 @@ export class MetadataLoader {
       throw new Error(`Metadata validation failed: ${errors}`);
     }
 
-    // At this point, we know metadata conforms to IEntryMetaExtended
-    const validatedMeta = metadataToValidate as IEntryMetaExtended;
+    // At this point, we know metadata conforms to IEntryMeta
+    const validatedMeta = metadataToValidate as IEntryMeta;
 
     // Additional validation: ensure defaultSort columns exist in columns array
     if (validatedMeta.defaultSort) {
@@ -145,7 +162,7 @@ export class MetadataLoader {
    * @param metadata - The entry metadata with field definitions
    * @returns AJV validate function for entry data
    */
-  static createDataValidator(metadata: IEntryMetaExtended): ValidateFunction | null {
+  static createDataValidator(metadata: IEntryMeta): ValidateFunction | null {
     this.init();
 
     // If no field definitions, return null
@@ -211,7 +228,7 @@ export class MetadataLoader {
    */
   static validateData(
     data: { [key: string]: any },
-    metadata: IEntryMetaExtended
+    metadata: IEntryMeta
   ): { isValid: boolean; errors: string[] } {
     const validator = this.createDataValidator(metadata);
 
@@ -239,7 +256,7 @@ export class MetadataLoader {
    * @returns Map of field names to their relationship definitions
    */
   static getRelationships(
-    metadata: IEntryMetaExtended
+    metadata: IEntryMeta
   ): Map<string, { type: "Link" | "LinkArray"; targetClass: string; targetField: string; separator?: string }> {
     const relationships = new Map();
 

@@ -13,9 +13,12 @@ Use the `@link` decorator to create a field that links to a single Entry:
 ```typescript
 import { Entry, link, Link } from "./lib";
 import { Responsibility } from "./Responsibility";
+import metadata from "./Assignment.meta.json";
 
 export class Assignment extends Entry {
-  static override _meta = ASSIGNMENT_META;
+  static {
+    this.loadMetadata(metadata);
+  }
   
   @link(Responsibility)
   public responsibility: Link<Responsibility> = "" as Link<Responsibility>;
@@ -38,9 +41,12 @@ Use the `@linkArray` decorator for comma-separated lists:
 ```typescript
 import { Entry, linkArray, LinkArray } from "./lib";
 import { Participant } from "./Participant";
+import metadata from "./Assignment.meta.json";
 
 export class Assignment extends Entry {
-  static override _meta = ASSIGNMENT_META;
+  static {
+    this.loadMetadata(metadata);
+  }
   
   @linkArray(Participant)
   public assignees: LinkArray<Participant> = "" as LinkArray<Participant>;
@@ -129,8 +135,12 @@ protected override async beforeSave(): Promise<void> {
 ## Example: Complete Assignment Class
 
 ```typescript
+import metadata from "./Assignment.meta.json";
+
 export class Assignment extends Entry {
-  static override _meta = ASSIGNMENT_META;
+  static {
+    this.loadMetadata(metadata);
+  }
   
   public eventDate: Date = new Date();
   

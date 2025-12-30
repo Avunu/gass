@@ -4,7 +4,7 @@ export { EntryRegistry, MenuItem, MenuHandler, GlobalMenuFunctions } from "./bas
 export { SchedulerService } from "./base/ScheduledJob";
 export { CacheManager } from "./base/cacheManager";
 export { Link, LinkArray, LinkMetadata, link, linkArray, getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./base/Link";
-export { MetadataLoader, IEntryMetaExtended } from "./base/MetadataLoader";
+export { MetadataLoader } from "./base/MetadataLoader";
 
 // Core services
 export { SheetService, SheetValue, FilterCriteria } from "./services/SheetService";

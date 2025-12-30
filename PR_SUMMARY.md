@@ -21,7 +21,7 @@ This PR implements a comprehensive JSON Schema-based metadata system for GASS En
    - Provides detailed validation error messages
 
 3. **Entry Class Enhancement** (`base/Entry.ts`)
-   - Added `loadMetadataFromJSON()` static method
+   - Added `loadMetadata()` static method
    - Added `validateWithSchema()` for automatic validation
    - Enhanced `save()` with JSON Schema validation
    - Enhanced `batchInsert()` with JSON Schema validation
@@ -112,7 +112,7 @@ class User extends Entry {
 import metadata from "./User.meta.json";
 
 class User extends Entry {
-  static { this.loadMetadataFromJSON(metadata); }
+  static { this.loadMetadata(metadata); }
   
   validate(): ValidationResult {
     // JSON Schema handles basic validation
