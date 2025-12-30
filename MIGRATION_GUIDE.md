@@ -2,9 +2,13 @@
 
 ## Overview
 
-This guide helps you migrate from the traditional `IEntryMeta` approach to the new JSON Schema-based metadata system.
+This guide helps you migrate from older versions of GASS that used the traditional `IEntryMeta` approach to the current version that **requires** JSON Schema-based metadata.
 
-## Why Migrate?
+## Important: JSON Schema is Now Required
+
+**As of the current version, all Entry classes MUST use JSON Schema metadata with field definitions.** The traditional approach of directly assigning to `static override _meta` is no longer supported.
+
+## Why JSON Schema?
 
 **Benefits of JSON Schema approach:**
 - ✅ Declarative validation without writing code
@@ -14,6 +18,7 @@ This guide helps you migrate from the traditional `IEntryMeta` approach to the n
 - ✅ Future-ready for JSONForms and other schema-based tools
 - ✅ Easier to maintain and understand
 - ✅ Automatic validation before custom validation runs
+- ✅ Consistent validation across all entries
 
 ## Migration Steps
 
@@ -23,9 +28,9 @@ For each Entry class, create a `.meta.json` file in the same directory.
 
 **Example:** If you have `User.ts`, create `User.meta.json`
 
-### Step 2: Convert IEntryMeta to JSON
+### Step 2: Convert IEntryMeta to JSON with Fields
 
-#### Before (TypeScript)
+#### Before (Old Version - No Longer Supported)
 
 ```typescript
 // User.ts
@@ -89,7 +94,7 @@ export class User extends Entry {
 }
 ```
 
-#### After (JSON + TypeScript)
+#### After (Current Version - Required)
 
 **User.meta.json:**
 ```json
@@ -337,16 +342,16 @@ validate(): ValidationResult {
 }
 ```
 
-## Gradual Migration
+## Migration Strategy
 
-You can migrate gradually:
+Recommended approach for migrating existing projects:
 
 1. **Start with one Entry:** Pick the simplest Entry to migrate first
 2. **Test thoroughly:** Ensure it works before moving to the next
-3. **Leave complex ones for last:** Entries with complex validation can wait
-4. **Old code still works:** Existing Entries using `IEntryMeta` continue to function
+3. **Update all at once:** Since JSON Schema is now required, plan to update all Entry classes in your project
+4. **Add field definitions:** All entries must define validation rules in their metadata
 
-## Benefits After Migration
+## Benefits of JSON Schema
 
 After migrating to JSON Schema, you'll enjoy:
 

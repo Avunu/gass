@@ -33,12 +33,18 @@ export type ValidationResult = {
 };
 
 export abstract class Entry {
-  public static _meta: IEntryMeta;
+  // JSON Schema-based metadata (required)
+  protected static _metaExtended: IEntryMetaExtended;
+  protected static _dataValidator: ValidateFunction | null = null;
   protected static _instances: Map<string, Entry> = new Map();
   
-  // Optional JSON Schema-based metadata and validator
-  protected static _metaExtended?: IEntryMetaExtended;
-  protected static _dataValidator?: ValidateFunction | null;
+  // Derived _meta property for compatibility with existing code
+  public static get _meta(): IEntryMeta {
+    if (!this._metaExtended) {
+      throw new Error(`Entry class ${this.name} must call loadMetadataFromJSON() in a static block before use`);
+    }
+    return this._metaExtended as IEntryMeta;
+  }
 
   protected _isDirty: boolean = false;
   protected _isNew: boolean = true;
@@ -62,19 +68,20 @@ export abstract class Entry {
 
   /**
    * Load metadata from a JSON object and set up JSON Schema validation
-   * @param metadata - JSON metadata object
+   * This is the ONLY way to define Entry metadata - direct assignment to _meta is not supported
+   * @param metadata - JSON metadata object with JSON Schema field definitions
    */
   protected static loadMetadataFromJSON(metadata: any): void {
     // Validate and load the metadata
     this._metaExtended = MetadataLoader.loadFromObject(metadata);
     
-    // For backward compatibility, also set _meta from the loaded metadata
-    this._meta = this._metaExtended as IEntryMeta;
-    
-    // Create data validator if fields are defined
-    if (this._metaExtended.fields) {
-      this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
+    // Create data validator from field definitions
+    // All entries MUST define fields in their metadata
+    if (!this._metaExtended.fields || Object.keys(this._metaExtended.fields).length === 0) {
+      throw new Error(`Entry class ${this.name} metadata must define "fields" with JSON Schema validation rules`);
     }
+    
+    this._dataValidator = MetadataLoader.createDataValidator(this._metaExtended);
 
     // Note: Link decorator validation is deferred until first use
     // because decorators may not be registered yet during static initialization
@@ -120,19 +127,18 @@ export abstract class Entry {
   }
 
   /**
-   * Validate entry data using JSON Schema if configured
-   * Falls back to the abstract validate() method for custom validation
+   * Validate entry data using JSON Schema
+   * All entries MUST have JSON Schema validation configured
    * @param data - The entry data to validate
    * @returns Validation result
    */
   protected static validateWithSchema(data: { [key: string]: any }): ValidationResult {
-    // If extended metadata with fields is available, use JSON Schema validation
-    if (this._metaExtended?.fields && this._dataValidator !== undefined) {
-      return MetadataLoader.validateData(data, this._metaExtended);
+    // All entries must have JSON Schema validation
+    if (!this._metaExtended?.fields || this._dataValidator === undefined) {
+      throw new Error(`Entry class ${this.name} must have JSON Schema fields defined in metadata`);
     }
     
-    // Otherwise return valid (custom validation in validate() method will run)
-    return { isValid: true, errors: [] };
+    return MetadataLoader.validateData(data, this._metaExtended);
   }
 
   // Update the static method signatures to include static members in the constraint
