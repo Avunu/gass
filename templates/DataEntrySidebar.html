@@ -196,7 +196,7 @@
 
     <script>
       // Entry metadata passed from server
-      const entryTypeName = '<?= entryTypeName ?>';
+      const entryTypeName = <?!= JSON.stringify(entryTypeName) ?>;
       const initialMetadata = <?!= entryMeta ?>;
       
       let currentMode = 'new'; // 'new' or 'edit'
@@ -316,7 +316,8 @@
                 const selectedValue = this.value;
                 if (selectedValue) {
                   const currentVals = hiddenInput.value ? hiddenInput.value.split(separator).map(v => v.trim()) : [];
-                  if (!currentVals.includes(selectedValue)) {
+                  const currentValsSet = new Set(currentVals);
+                  if (!currentValsSet.has(selectedValue)) {
                     addChip(chipsDisplay, selectedValue, hiddenInput, separator);
                   }
                   this.value = '';
@@ -562,8 +563,7 @@
         const formData = {};
         const formElements = this.elements;
         
-        for (let i = 0; i < formElements.length; i++) {
-          const element = formElements[i];
+        for (const element of formElements) {
           if (element.name) {
             if (element.tagName === 'MD-CHECKBOX') {
               formData[element.name] = element.checked;

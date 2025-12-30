@@ -110,33 +110,20 @@ export class DataEntryService {
   }
 
   /**
-   * Show a dialog for editing an existing entry
-   * Note: This method is async to support fetching link options for Link/LinkArray fields
-   * @param EntryClass - The Entry class to edit
+   * Get the currently selected row data and create entry from it
+   * @param EntryClass - The Entry class constructor
+   * @returns Object containing row number and entry data
    */
-  static async showEditEntryDialog<T extends Entry>(
-    EntryClass: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> }
-  ): Promise<void> {
-    if (!EntryClass._meta) {
-      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please call loadMetadata() with JSON Schema metadata.`);
-    }
-
-    // Get the currently selected row
+  private static getSelectedRowData(
+    EntryClass: EntryConstructor
+  ): { row: number; entryData: { [key: string]: SheetValue } } {
     const sheet = SpreadsheetApp.getActiveSheet();
     const activeRange = sheet.getActiveRange();
     const row = activeRange.getRow();
 
-    // Check if we're on the correct sheet
-    const sheetId = sheet.getSheetId();
-    if (sheetId !== EntryClass._meta.sheetId) {
-      SpreadsheetApp.getUi().alert("Please select a row in the correct sheet");
-      return;
-    }
-
     // Check if it's the header row
     if (row === EntryClass._meta.headerRow) {
-      SpreadsheetApp.getUi().alert("Cannot edit the header row");
-      return;
+      throw new Error("Cannot edit the header row");
     }
 
     // Get the row data
@@ -157,6 +144,32 @@ export class DataEntryService {
     EntryClass._meta.columns.forEach((col) => {
       entryData[col] = (entry as any)[col];
     });
+
+    return { row, entryData };
+  }
+
+  /**
+   * Show a dialog for editing an existing entry
+   * Note: This method is async to support fetching link options for Link/LinkArray fields
+   * @param EntryClass - The Entry class to edit
+   */
+  static async showEditEntryDialog<T extends Entry>(
+    EntryClass: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> }
+  ): Promise<void> {
+    if (!EntryClass._meta) {
+      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please call loadMetadata() with JSON Schema metadata.`);
+    }
+
+    // Check if we're on the correct sheet
+    const sheet = SpreadsheetApp.getActiveSheet();
+    const sheetId = sheet.getSheetId();
+    if (sheetId !== EntryClass._meta.sheetId) {
+      SpreadsheetApp.getUi().alert("Please select a row in the correct sheet");
+      return;
+    }
+
+    // Get selected row data
+    const { row, entryData } = this.getSelectedRowData(EntryClass);
 
     // Fetch link options for Link/LinkArray fields
     const linkOptions = await this.prepareLinkOptions(EntryClass._meta);
@@ -307,35 +320,10 @@ export class DataEntryService {
     let rowNumber: number | null = null;
 
     if (mode === 'edit') {
-      // Get the currently selected row
-      const sheet = SpreadsheetApp.getActiveSheet();
-      const activeRange = sheet.getActiveRange();
-      const row = activeRange.getRow();
-
-      // Check if it's the header row
-      if (row === EntryClass._meta.headerRow) {
-        throw new Error("Cannot edit the header row");
-      }
-
-      // Get the row data
-      const fullRowRange = sheet.getRange(
-        row,
-        EntryClass._meta.dataStartColumn,
-        1,
-        EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
-      );
-      const rowData = fullRowRange.getValues()[0];
-
-      // Create an entry from the row data
-      const entry = new EntryClass();
-      entry.fromRow(rowData, row);
-
-      // Convert entry to data object
-      EntryClass._meta.columns.forEach((col) => {
-        entryData[col] = (entry as any)[col];
-      });
-
-      rowNumber = row;
+      // Use the helper method to get selected row data
+      const result = this.getSelectedRowData(EntryClass);
+      entryData = result.entryData;
+      rowNumber = result.row;
     }
 
     return {
