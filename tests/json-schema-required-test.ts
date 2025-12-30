@@ -226,5 +226,3 @@ console.log("\n=== JSON Schema enforcement verified ===");
 console.log("All Entry classes must use loadMetadataFromJSON() with field definitions.");
 console.log("Legacy IEntryMeta direct assignment is no longer supported.");
 
-
-

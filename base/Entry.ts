@@ -134,7 +134,7 @@ export abstract class Entry {
    */
   protected static validateWithSchema(data: { [key: string]: any }): ValidationResult {
     // All entries must have JSON Schema validation
-    if (!this._metaExtended?.fields || this._dataValidator === undefined) {
+    if (!this._metaExtended?.fields || this._dataValidator === null) {
       throw new Error(`Entry class ${this.name} must have JSON Schema fields defined in metadata`);
     }
     
