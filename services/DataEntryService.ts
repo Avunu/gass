@@ -92,7 +92,7 @@ export class DataEntryService {
     EntryClass: (new () => T) & { _meta: IEntryMeta }
   ): Promise<void> {
     if (!EntryClass._meta) {
-      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please use loadMetadata() in a static block.`);
+      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please call loadMetadata() with JSON Schema metadata.`);
     }
 
     // Fetch link options for Link/LinkArray fields
@@ -118,7 +118,7 @@ export class DataEntryService {
     EntryClass: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> }
   ): Promise<void> {
     if (!EntryClass._meta) {
-      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please use loadMetadata() in a static block.`);
+      throw new Error(`Entry class ${EntryClass.name} does not have metadata. Please call loadMetadata() with JSON Schema metadata.`);
     }
 
     // Get the currently selected row
