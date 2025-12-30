@@ -66,27 +66,48 @@
         width: 100%;
       }
       
-      .checkbox-group {
+      .chip-multi-select {
         display: flex;
         flex-direction: column;
+        gap: 12px;
+      }
+      
+      .chips-display {
+        display: flex;
+        flex-wrap: wrap;
         gap: 8px;
+        min-height: 40px;
         padding: 8px;
         border: 1px solid #e0e0e0;
         border-radius: 4px;
-        max-height: 200px;
-        overflow-y: auto;
+        background-color: #fafafa;
       }
       
-      .checkbox-item {
-        display: flex;
+      .chip {
+        display: inline-flex;
         align-items: center;
-        padding: 4px;
+        padding: 4px 8px;
+        background-color: #e0e0e0;
+        border-radius: 16px;
+        font-size: 14px;
+        gap: 4px;
       }
       
-      .checkbox-item label {
-        margin: 0;
-        margin-left: 8px;
-        font-weight: normal;
+      .chip-remove {
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        margin-left: 4px;
+        color: #666;
+        line-height: 1;
+      }
+      
+      .chip-remove:hover {
+        color: #d32f2f;
+      }
+      
+      .chip-select {
+        width: 100%;
       }
       
       .form-actions {
@@ -163,33 +184,71 @@
             const options = linkOptions[column] || [];
             
             if (isLinkArray) {
-              // Multi-select for LinkArray fields
-              // For LinkArray, we'll use checkboxes since md-filled-select doesn't support multiple selection well
+              // Multi-select for LinkArray fields using chips
               const separator = fieldDef.separator || ',';
               const currentValues = value ? String(value).split(separator).map(v => v.trim()) : [];
               
-              const checkboxContainer = document.createElement('div');
-              checkboxContainer.className = 'checkbox-group';
-              checkboxContainer.setAttribute('data-name', column);
-              checkboxContainer.setAttribute('data-separator', separator);
+              // Create container for chip-based multi-select
+              const chipContainer = document.createElement('div');
+              chipContainer.className = 'chip-multi-select';
+              chipContainer.setAttribute('data-name', column);
+              chipContainer.setAttribute('data-separator', separator);
               
+              // Create chips display area
+              const chipsDisplay = document.createElement('div');
+              chipsDisplay.className = 'chips-display';
+              chipContainer.appendChild(chipsDisplay);
+              
+              // Create dropdown select for adding items
+              const select = document.createElement('md-filled-select');
+              select.className = 'chip-select';
+              select.setAttribute('label', 'Add item...');
+              
+              // Add empty option
+              const emptyOption = document.createElement('md-select-option');
+              emptyOption.value = '';
+              emptyOption.textContent = '-- Select to add --';
+              select.appendChild(emptyOption);
+              
+              // Add options from linked entries
               options.forEach(option => {
-                const checkboxWrapper = document.createElement('div');
-                checkboxWrapper.className = 'checkbox-item';
-                
-                const checkbox = document.createElement('md-checkbox');
-                checkbox.value = option;
-                checkbox.checked = currentValues.includes(option);
-                
-                const checkboxLabel = document.createElement('label');
-                checkboxLabel.textContent = option;
-                
-                checkboxWrapper.appendChild(checkbox);
-                checkboxWrapper.appendChild(checkboxLabel);
-                checkboxContainer.appendChild(checkboxWrapper);
+                const selectOption = document.createElement('md-select-option');
+                selectOption.value = option;
+                selectOption.textContent = option;
+                select.appendChild(selectOption);
               });
               
-              fieldDiv.appendChild(checkboxContainer);
+              chipContainer.appendChild(select);
+              
+              // Hidden input to store selected values
+              const hiddenInput = document.createElement('input');
+              hiddenInput.type = 'hidden';
+              hiddenInput.name = column;
+              hiddenInput.value = currentValues.join(separator);
+              chipContainer.appendChild(hiddenInput);
+              
+              fieldDiv.appendChild(chipContainer);
+              
+              // Initialize chips from current values
+              currentValues.forEach(val => {
+                if (val) {
+                  addChip(chipsDisplay, val, hiddenInput, separator);
+                }
+              });
+              
+              // Handle selection changes
+              select.addEventListener('change', function() {
+                const selectedValue = this.value;
+                if (selectedValue) {
+                  // Add chip if not already present
+                  const currentVals = hiddenInput.value ? hiddenInput.value.split(separator).map(v => v.trim()) : [];
+                  if (!currentVals.includes(selectedValue)) {
+                    addChip(chipsDisplay, selectedValue, hiddenInput, separator);
+                  }
+                  // Reset select
+                  this.value = '';
+                }
+              });
             } else {
               // Single-select for Link fields
               const select = document.createElement('md-filled-select');
@@ -321,6 +380,40 @@
         });
       }
       
+      // Function to add a chip to the display
+      function addChip(chipsDisplay, value, hiddenInput, separator) {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = value;
+        
+        // Add remove button
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'chip-remove';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.onclick = function() {
+          // Remove chip
+          chip.remove();
+          // Update hidden input
+          updateHiddenInput(chipsDisplay, hiddenInput, separator);
+        };
+        
+        chip.appendChild(removeBtn);
+        chipsDisplay.appendChild(chip);
+        
+        // Update hidden input
+        updateHiddenInput(chipsDisplay, hiddenInput, separator);
+      }
+      
+      // Function to update hidden input value from chips
+      function updateHiddenInput(chipsDisplay, hiddenInput, separator) {
+        const chips = chipsDisplay.querySelectorAll('.chip');
+        const values = Array.from(chips).map(chip => {
+          // Get text content without the remove button
+          return chip.childNodes[0].textContent.trim();
+        });
+        hiddenInput.value = values.join(separator);
+      }
+      
       // Format column name for display
       function formatColumnName(column) {
         return column
@@ -424,36 +517,16 @@
         const formData = {};
         const formElements = this.elements;
         
-        // First, collect checkbox groups (LinkArray fields)
-        const checkboxGroups = document.querySelectorAll('.checkbox-group');
-        checkboxGroups.forEach(group => {
-          const fieldName = group.getAttribute('data-name');
-          const separator = group.getAttribute('data-separator') || ',';
-          const checkboxes = group.querySelectorAll('md-checkbox');
-          const selectedValues = [];
-          
-          checkboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-              selectedValues.push(checkbox.value);
-            }
-          });
-          
-          formData[fieldName] = selectedValues.join(separator);
-        });
-        
-        // Then collect regular form elements
+        // Collect all form elements including hidden inputs
         for (let i = 0; i < formElements.length; i++) {
           const element = formElements[i];
           if (element.name) {
-            const isPartOfCheckboxGroup = element.closest('.checkbox-group');
-            if (!isPartOfCheckboxGroup) {
-              if (element.tagName === 'MD-CHECKBOX') {
-                // Regular checkbox (boolean field)
-                formData[element.name] = element.checked;
-              } else {
-                // Regular input field
-                formData[element.name] = element.value;
-              }
+            if (element.tagName === 'MD-CHECKBOX') {
+              // Regular checkbox (boolean field)
+              formData[element.name] = element.checked;
+            } else {
+              // Regular input field (includes hidden inputs for chip multi-select)
+              formData[element.name] = element.value;
             }
           }
         }
