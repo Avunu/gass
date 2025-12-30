@@ -246,11 +246,11 @@ The following formats are supported through `ajv-formats`:
 }
 ```
 
-## Migration Guide
+## Migration from Older Versions
 
-### From Old IEntryMeta to JSON Schema
+If you're migrating from an older version of GASS that used the traditional IEntryMeta approach, you must now use JSON Schema metadata.
 
-#### Before (TypeScript)
+### Old Approach (No Longer Supported)
 
 ```typescript
 const MY_ENTITY_META: IEntryMeta = {
@@ -277,7 +277,7 @@ export class MyEntity extends Entry {
 }
 ```
 
-#### After (JSON + TypeScript)
+### Current Approach (Required)
 
 **MyEntity.meta.json:**
 ```json
@@ -319,6 +319,8 @@ export class MyEntity extends Entry {
   }
 }
 ```
+
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed migration instructions.
 
 ## Advanced Usage
 
