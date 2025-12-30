@@ -238,6 +238,10 @@ export class EntryRegistry {
     const EntryType = this.getEntryTypeBySheetId(sheetId);
     
     if (EntryType) {
+      // Create sidebar menu item
+      menu.addItem("Show Sidebar", "showDataEntrySidebar");
+      menu.addSeparator();
+      
       // Create Add Entry menu item
       menu.addItem("Add Entry", "showAddEntryDialog_" + EntryType.name);
       
@@ -286,6 +290,26 @@ export class EntryRegistry {
         }
       };
     });
+
+    // Register the sidebar function globally
+    global["showDataEntrySidebar"] = () => {
+      try {
+        DataEntryService.showDataEntrySidebar();
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          `Error: ${errorMsg}`,
+          "Show Sidebar Failed",
+          -1
+        );
+        throw error;
+      }
+    };
+
+    // Register the sidebar form data loader globally
+    global["loadSidebarFormData"] = (entryTypeName: string, mode: 'new' | 'edit') => {
+      return DataEntryService.loadSidebarFormData(entryTypeName, mode);
+    };
 
     // Register the save function globally so it can be called from the dialog
     global["saveEntryFromDialog"] = (

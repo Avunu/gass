@@ -242,4 +242,107 @@ export class DataEntryService {
       };
     }
   }
+
+  /**
+   * Show a persistent sidebar with data entry form
+   * Correlates the current sheet with registered entry types
+   */
+  static showDataEntrySidebar(): void {
+    const activeSheet = SpreadsheetApp.getActiveSheet();
+    const sheetId = activeSheet.getSheetId();
+    
+    // Find the Entry type for this sheet
+    let EntryClass: EntryConstructor | undefined;
+    for (const [name, constructor] of this.entryTypeRegistry.entries()) {
+      if (constructor._meta.sheetId === sheetId) {
+        EntryClass = constructor;
+        break;
+      }
+    }
+
+    if (!EntryClass) {
+      SpreadsheetApp.getUi().alert("No entry type registered for this sheet");
+      return;
+    }
+
+    const template = HtmlService.createTemplateFromFile("templates/DataEntrySidebar");
+    template.entryTypeName = EntryClass.name;
+    template.entryMeta = JSON.stringify(EntryClass._meta);
+
+    const html = template.evaluate()
+      .setTitle("Data Entry")
+      .setWidth(350);
+    
+    SpreadsheetApp.getUi().showSidebar(html);
+  }
+
+  /**
+   * Load data for sidebar form
+   * @param entryTypeName - Name of the Entry class
+   * @param mode - 'new' or 'edit'
+   * @returns Form data including metadata, link options, and entry data
+   */
+  static async loadSidebarFormData(
+    entryTypeName: string,
+    mode: 'new' | 'edit'
+  ): Promise<{
+    entryMeta: IEntryMeta;
+    linkOptions: { [fieldName: string]: string[] };
+    entryData: { [key: string]: SheetValue };
+    rowNumber: number | null;
+  }> {
+    const EntryClass = this.getEntryType(entryTypeName);
+    if (!EntryClass) {
+      throw new Error(`Entry type not found: ${entryTypeName}`);
+    }
+
+    if (!EntryClass._meta) {
+      throw new Error(`Entry type ${entryTypeName} does not have metadata`);
+    }
+
+    // Fetch link options for Link/LinkArray fields
+    const linkOptions = await this.prepareLinkOptions(EntryClass._meta);
+
+    let entryData: { [key: string]: SheetValue } = {};
+    let rowNumber: number | null = null;
+
+    if (mode === 'edit') {
+      // Get the currently selected row
+      const sheet = SpreadsheetApp.getActiveSheet();
+      const activeRange = sheet.getActiveRange();
+      const row = activeRange.getRow();
+
+      // Check if it's the header row
+      if (row === EntryClass._meta.headerRow) {
+        throw new Error("Cannot edit the header row");
+      }
+
+      // Get the row data
+      const fullRowRange = sheet.getRange(
+        row,
+        EntryClass._meta.dataStartColumn,
+        1,
+        EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
+      );
+      const rowData = fullRowRange.getValues()[0];
+
+      // Create an entry from the row data
+      const entry = new EntryClass();
+      entry.fromRow(rowData, row);
+
+      // Convert entry to data object
+      EntryClass._meta.columns.forEach((col) => {
+        entryData[col] = (entry as any)[col];
+      });
+
+      rowNumber = row;
+    }
+
+    return {
+      entryMeta: EntryClass._meta,
+      linkOptions,
+      entryData,
+      rowNumber
+    };
+  }
 }
