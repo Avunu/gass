@@ -6,6 +6,9 @@ import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY }
 import { MetadataLoader, IEntryMeta } from "./MetadataLoader";
 import { ValidateFunction } from "ajv";
 
+// Re-export IEntryMeta for convenience
+export type { IEntryMeta } from "./MetadataLoader";
+
 export type ValidationResult = {
   isValid: boolean;
   errors: string[];
