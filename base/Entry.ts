@@ -420,7 +420,8 @@ export abstract class Entry {
   }
 
   public fromRow(rowData: SheetValue[], rowNumber: number): void {
-    const meta = (this.constructor as typeof Entry)._meta;
+    const EntryClass = this.constructor as typeof Entry;
+    const meta = EntryClass._meta;
 
     // Validate we have enough columns
     if (rowData.length < meta.columns.length) {
@@ -429,7 +430,20 @@ export abstract class Entry {
 
     // Map data positionally
     meta.columns.forEach((col, index) => {
-      this[col] = rowData[index];
+      let value = rowData[index];
+      
+      // Convert empty strings to null for optional fields (those that accept null)
+      if (value === "" && EntryClass._metaExtended?.fields?.[col]) {
+        const fieldSchema = EntryClass._metaExtended.fields[col];
+        const fieldType = Array.isArray(fieldSchema.type) ? fieldSchema.type : [fieldSchema.type];
+        
+        // If the field type includes "null", convert empty string to null
+        if (fieldType.includes("null")) {
+          value = null;
+        }
+      }
+      
+      this[col] = value;
     });
 
     this._row = rowNumber;
