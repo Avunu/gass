@@ -281,7 +281,7 @@ export class DataEntryService {
       return;
     }
 
-    const template = HtmlService.createTemplateFromFile("templates/DataEntrySidebar");
+    const template = HtmlService.createTemplateFromFile("src/lib/templates/DataEntrySidebar");
     template.entryTypeName = EntryClass.name;
     template.entryMeta = JSON.stringify(EntryClass._meta);
 
