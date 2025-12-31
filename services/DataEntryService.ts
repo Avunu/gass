@@ -98,7 +98,7 @@ export class DataEntryService {
     // Fetch link options for Link/LinkArray fields
     const linkOptions = await this.prepareLinkOptions(EntryClass._meta);
 
-    const template = HtmlService.createTemplateFromFile("templates/DataEntryDialog");
+    const template = HtmlService.createTemplateFromFile("src/lib/templates/DataEntryDialog");
     template.entryMeta = JSON.stringify(EntryClass._meta);
     template.entryData = JSON.stringify({}); // Empty data for new entry
     template.linkOptions = JSON.stringify(linkOptions);
