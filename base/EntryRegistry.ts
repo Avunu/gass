@@ -12,7 +12,7 @@ export interface MenuItem {
 
 // Add type for global menu functions
 export interface MenuHandler {
-  (): Promise<void> | void;
+  (...args: any[]): Promise<any> | any;
 }
 
 export interface GlobalMenuFunctions {
@@ -22,6 +22,7 @@ export interface GlobalMenuFunctions {
 type EntryConstructor = {
   new (): Entry;
   _meta: IEntryMeta;
+  _instances: Map<string, Entry>;
   getMenuItems?: () => MenuItem[];
   get(filters: FilterCriteria): Promise<Entry[]>;
   getValue(filters: FilterCriteria, column: string): Promise<SheetValue>;
@@ -292,7 +293,7 @@ export class EntryRegistry {
     });
 
     // Register the sidebar function globally
-    global["showDataEntrySidebar"] = () => {
+    global.showDataEntrySidebar = () => {
       try {
         DataEntryService.showDataEntrySidebar();
       } catch (error) {
@@ -307,12 +308,12 @@ export class EntryRegistry {
     };
 
     // Register the sidebar form data loader globally
-    global["loadSidebarFormData"] = (entryTypeName: string, mode: 'new' | 'edit') => {
+    global.loadSidebarFormData = (entryTypeName: string, mode: 'new' | 'edit') => {
       return DataEntryService.loadSidebarFormData(entryTypeName, mode);
     };
 
     // Register the save function globally so it can be called from the dialog
-    global["saveEntryFromDialog"] = (
+    global.saveEntryFromDialog = (
       entryTypeName: string,
       entryData: { [key: string]: SheetValue },
       isEdit: boolean,

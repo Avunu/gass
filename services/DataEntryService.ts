@@ -38,8 +38,8 @@ export class DataEntryService {
    * @param targetField - The field to use as the value (default: "name")
    * @returns Array of option values
    */
-  private static async fetchLinkOptions(
-    EntryClass: EntryConstructor,
+  private static async fetchLinkOptions<T extends Entry>(
+    EntryClass: EntryConstructor & { getAll(): Promise<T[]> },
     targetField: string = "name"
   ): Promise<string[]> {
     try {
@@ -48,8 +48,8 @@ export class DataEntryService {
       
       // Extract the target field values
       const options = entries
-        .map((entry) => (entry as any)[targetField])
-        .filter((value) => value !== null && value !== undefined && value !== "");
+        .map((entry: Entry) => (entry as any)[targetField])
+        .filter((value: any) => value !== null && value !== undefined && value !== "");
       
       return options;
     } catch (error) {
@@ -73,7 +73,7 @@ export class DataEntryService {
       // Get the target Entry class from registry
       const TargetClass = this.getEntryType(relationship.targetClass);
       if (TargetClass) {
-        const options = await this.fetchLinkOptions(TargetClass, relationship.targetField);
+        const options = await this.fetchLinkOptions(TargetClass as any, relationship.targetField);
         linkOptions[fieldName] = options;
       } else {
         Logger.log(`Warning: Target class ${relationship.targetClass} not found in registry for field ${fieldName}`);
@@ -119,6 +119,9 @@ export class DataEntryService {
   ): { row: number; entryData: { [key: string]: SheetValue } } {
     const sheet = SpreadsheetApp.getActiveSheet();
     const activeRange = sheet.getActiveRange();
+    if (!activeRange) {
+      throw new Error("No active range selected");
+    }
     const row = activeRange.getRow();
 
     // Check if it's the header row
@@ -266,7 +269,7 @@ export class DataEntryService {
     
     // Find the Entry type for this sheet
     let EntryClass: EntryConstructor | undefined;
-    for (const [name, constructor] of this.entryTypeRegistry.entries()) {
+    for (const constructor of this.entryTypeRegistry.values()) {
       if (constructor._meta.sheetId === sheetId) {
         EntryClass = constructor;
         break;
