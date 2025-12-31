@@ -1,3 +1,5 @@
+import Request = GoogleAppsScript.Docs.Schema.Request;
+
 // Template-specific value types
 type TemplateBasicValue = string | number | boolean | null;
 type TemplateDateValue = Date | string; // Allow both Date objects and formatted date strings
@@ -100,12 +102,12 @@ export class DocService {
     // Use UrlFetchApp to convert HTML via Drive API without creating a file
     const accessToken = ScriptApp.getOAuthToken();
     const boundary = "boundary123";
-    
+
     const metadata = {
       mimeType: MimeType.GOOGLE_DOCS
     };
-    
-    const multipartBody = 
+
+    const multipartBody =
       `--${boundary}\r\n` +
       `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
       `${JSON.stringify(metadata)}\r\n` +
@@ -131,24 +133,72 @@ export class DocService {
       throw new Error(`Failed to update document with HTML: ${response.getContentText()}`);
     }
 
-    // Apply margins if specified
+    // Apply margins if specified using Advanced Docs API
     if (margins) {
-      const doc = DocumentApp.openById(docId);
-      const body = doc.getBody();
-      
-      if (margins.top !== undefined) body.setMarginTop(margins.top);
-      if (margins.bottom !== undefined) body.setMarginBottom(margins.bottom);
-      if (margins.left !== undefined) body.setMarginLeft(margins.left);
-      if (margins.right !== undefined) body.setMarginRight(margins.right);
-      
-      try {
-        doc.saveAndClose();
-      } catch (e) {
-        Logger.log(`Warning: Failed to save and close document for margin settings: ${e}`);
-      }
+      this.applyMargins(docId, margins);
     }
 
     return DriveApp.getFileById(docId);
+  }
+
+  private static applyMargins(docId: string, margins: PageMargins): void {
+
+    if (Docs?.Documents) {
+      try {
+        // Get document structure to find section
+        const docData = Docs.Documents.get(docId, {
+          fields: "body(content(sectionBreak,startIndex,endIndex))"
+        });
+
+        if (!docData.body?.content) {
+          Logger.log('Warning: Document body or content not found');
+          return;
+        }
+
+        const sections = docData.body.content.filter((e: any) => e.sectionBreak);
+        if (sections.length === 0) {
+          Logger.log('Warning: No sections found in document for margin application');
+          return;
+        }
+
+        // Apply margins to first section
+        const section = sections[0];
+        const { startIndex, endIndex } = section;
+
+        const sectionStyle: any = {};
+        const fields: string[] = [];
+
+        if (margins.top !== undefined) {
+          sectionStyle.marginTop = { unit: "PT", magnitude: margins.top };
+          fields.push('marginTop');
+        }
+        if (margins.bottom !== undefined) {
+          sectionStyle.marginBottom = { unit: "PT", magnitude: margins.bottom };
+          fields.push('marginBottom');
+        }
+        if (margins.left !== undefined) {
+          sectionStyle.marginLeft = { unit: "PT", magnitude: margins.left };
+          fields.push('marginLeft');
+        }
+        if (margins.right !== undefined) {
+          sectionStyle.marginRight = { unit: "PT", magnitude: margins.right };
+          fields.push('marginRight');
+        }
+
+        if (fields.length > 0) {
+          const requests: Request[] = [{
+            updateSectionStyle: {
+              range: { startIndex: startIndex || 0, endIndex: endIndex || 1 },
+              sectionStyle,
+              fields: fields.join(',')
+            }
+          }] as any; // Type assertion to bypass outdated types
+          Docs.Documents.batchUpdate({ requests }, docId);
+        }
+      } catch (error) {
+        Logger.log(`Warning: Failed to apply margins: ${error}`);
+      }
+    }
   }
 
   private static showProcessingModal(): void {
