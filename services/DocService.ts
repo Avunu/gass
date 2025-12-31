@@ -92,34 +92,63 @@ export class DocService {
     // Create new document
     const doc = DocumentApp.create(filename);
     const docId = doc.getId();
-
-    // Clear the document since we'll be replacing content
     const body = doc.getBody();
+
+    // Clear default content
     body.clear();
 
-    // Apply margins if provided
+    // Use UrlFetchApp to convert HTML via Drive API without creating a file
+    const accessToken = ScriptApp.getOAuthToken();
+    const boundary = "boundary123";
+    
+    const metadata = {
+      mimeType: MimeType.GOOGLE_DOCS
+    };
+    
+    const multipartBody = 
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/html\r\n\r\n` +
+      `${content}\r\n` +
+      `--${boundary}--`;
+
+    const response = UrlFetchApp.fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${docId}?uploadType=multipart`,
+      {
+        method: 'patch',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        payload: multipartBody,
+        muteHttpExceptions: true
+      }
+    );
+
+    if (response.getResponseCode() !== 200) {
+      throw new Error(`Failed to update document with HTML: ${response.getContentText()}`);
+    }
+
+    // Apply margins if specified
     if (margins) {
+      const doc = DocumentApp.openById(docId);
+      const body = doc.getBody();
+      
       if (margins.top !== undefined) body.setMarginTop(margins.top);
       if (margins.bottom !== undefined) body.setMarginBottom(margins.bottom);
       if (margins.left !== undefined) body.setMarginLeft(margins.left);
       if (margins.right !== undefined) body.setMarginRight(margins.right);
+      
+      try {
+        doc.saveAndClose();
+      } catch (e) {
+        Logger.log(`Warning: Failed to save and close document for margin settings: ${e}`);
+      }
     }
 
-    // Create a temporary HTML file
-    const htmlFile = DriveApp.createFile("temp.html", content, "text/html");
-
-    try {
-      // Convert HTML to Google Doc using Drive API
-      // Convert HTML file to Google Doc format
-      const blob = htmlFile.getBlob();
-      const docFile = DriveApp.getFileById(docId);
-      docFile.setContent(blob.getDataAsString());
-
-      return DriveApp.getFileById(docId);
-    } finally {
-      // Clean up temporary file
-      htmlFile.setTrashed(true);
-    }
+    return DriveApp.getFileById(docId);
   }
 
   private static showProcessingModal(): void {
