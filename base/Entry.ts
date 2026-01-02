@@ -191,7 +191,7 @@ export abstract class Entry {
     const dataRange = sheet.getDataRange();
     const values = dataRange.getValues();
 
-    // Skip header row in search (header is always row 1, index 0)
+    // Skip header row (index 0), start from index 1
     for (let i = 1; i < values.length; i++) {
       const row = values[i];
       if (filterIndices.every((f) => row[f.index] === f.value)) {
