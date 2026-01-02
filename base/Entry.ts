@@ -149,7 +149,7 @@ export abstract class Entry {
 
     const rows = await SheetService.getFilteredRows(
       this._meta.sheetId,
-      this._meta.headerRow,
+      1, // headerRow is always 1
       filters,
       this._meta.columns,
       sortInfo ? { sortInfo } : undefined,
@@ -191,8 +191,8 @@ export abstract class Entry {
     const dataRange = sheet.getDataRange();
     const values = dataRange.getValues();
 
-    // Skip header row in search
-    for (let i = this._meta.headerRow; i < values.length; i++) {
+    // Skip header row (index 0), start from index 1
+    for (let i = 1; i < values.length; i++) {
       const row = values[i];
       if (filterIndices.every((f) => row[f.index] === f.value)) {
         return row[columnIndex];
@@ -205,7 +205,7 @@ export abstract class Entry {
   static async getAll<T extends Entry>(
     this: (new () => T) & { _meta: IEntryMeta; _instances: Map<string, Entry> },
   ): Promise<T[]> {
-    const rows = await SheetService.getAllRows(this._meta.sheetId, this._meta.headerRow + 1);
+    const rows = await SheetService.getAllRows(this._meta.sheetId, 2); // Start from row 2 (after header row 1)
     return rows.map((row) => {
       const entry = new this();
       entry.fromRow(row.data, row.rowNumber);
@@ -448,7 +448,7 @@ export abstract class Entry {
     }
 
     const indices = this._meta.columns.reduce((acc: { [key: string]: number }, col: string, index) => {
-      acc[col] = index + this._meta.dataStartColumn;
+      acc[col] = index + 1; // dataStartColumn is always 1 (column A)
       return acc;
     }, {});
 
@@ -605,11 +605,12 @@ export abstract class Entry {
     column: number,
   ): void {
     const sheet = SheetService.getSheet(this._meta.sheetId);
+    const dataEndColumn = this._meta.columns.length; // Calculate from columns array
     const range = sheet.getRange(
-      this._meta.headerRow,
-      this._meta.dataStartColumn,
-      sheet.getLastRow() - this._meta.headerRow,
-      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+      1, // headerRow is always 1
+      1, // dataStartColumn is always 1
+      sheet.getLastRow() - 1, // Rows of data after header
+      dataEndColumn,
     );
 
     const filter = sheet.getFilter();
@@ -629,13 +630,14 @@ export abstract class Entry {
   ): void {
     const sheet = SheetService.getSheet(this._meta.sheetId);
     const lastRow = sheet.getLastRow();
-    const numRows = Math.max(1, lastRow - this._meta.headerRow);
+    const numRows = Math.max(1, lastRow - 1); // headerRow is always 1
+    const dataEndColumn = this._meta.columns.length; // Calculate from columns array
 
     const range = sheet.getRange(
-      this._meta.headerRow + 1,
-      this._meta.dataStartColumn,
+      2, // Start from row 2 (after header row 1)
+      1, // dataStartColumn is always 1
       numRows,
-      this._meta.dataEndColumn - this._meta.dataStartColumn + 1,
+      dataEndColumn,
     );
 
     range.sort(sortOrders);
@@ -650,65 +652,6 @@ export abstract class Entry {
     if (filter) {
       filter.remove();
     }
-  }
-
-  /**
-   * Apply smart filters based on filter row values
-   */
-  static applySmartFilters<T extends Entry>(
-    this: (new () => T) & {
-      _meta: IEntryMeta;
-      clearFilters(): void;
-    },
-  ): void {
-    const meta = this._meta;
-    if (!meta.filterRow || !meta.filterRange) return;
-
-    const sheet = SheetService.getSheet(meta.sheetId);
-    const filterRange = sheet.getRange(
-      meta.filterRow,
-      meta.filterRange.startColumn,
-      1,
-      meta.filterRange.endColumn - meta.filterRange.startColumn + 1,
-    );
-
-    // Check if we should clear filters
-    if (meta.clearFiltersCell) {
-      const clearValue = sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).getValue();
-      if (clearValue === true) {
-        this.clearFilters();
-        // Reset the clear checkbox
-        sheet.getRange(meta.clearFiltersCell.row, meta.clearFiltersCell.column).setValue(false);
-        // clear the filter range values
-        filterRange.clearContent();
-        return;
-      }
-    }
-
-    // Get filter row values
-    const filterValues = filterRange.getValues()[0];
-
-    // Create or update filter
-    const range = sheet.getRange(
-      meta.headerRow,
-      meta.dataStartColumn,
-      Math.max(1, sheet.getLastRow() - (meta.headerRow + 1) + 1),
-      meta.dataEndColumn - meta.dataStartColumn + 1,
-    );
-
-    const filter = sheet.getFilter() || range.createFilter();
-
-    // Apply filter for each non-empty filter value
-    filterValues.forEach((value, index) => {
-      if (value) {
-        const column = meta.filterRange!.startColumn + index;
-        const criteria = SpreadsheetApp.newFilterCriteria()
-          .whenTextContains(value.toString())
-          .setHiddenValues([""])
-          .build();
-        filter.setColumnFilterCriteria(column, criteria);
-      }
-    });
   }
 
   static getScheduledJobs?(): ScheduledJob[];

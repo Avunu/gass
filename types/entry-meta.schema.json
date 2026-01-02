@@ -4,7 +4,7 @@
   "title": "Entry Metadata Schema",
   "description": "JSON Schema for defining Entry type metadata in GASS (Google Apps Script Sheets ORM)",
   "type": "object",
-  "required": ["sheetId", "columns", "headerRow", "dataStartColumn", "dataEndColumn"],
+  "required": ["sheetId", "columns"],
   "properties": {
     "$schema": {
       "type": "string",
@@ -37,23 +37,7 @@
       "minItems": 1,
       "uniqueItems": true
     },
-    "headerRow": {
-      "type": "integer",
-      "description": "The row number containing column headers (1-indexed)",
-      "minimum": 1,
-      "default": 1
-    },
-    "dataStartColumn": {
-      "type": "integer",
-      "description": "The first column containing data (1-indexed)",
-      "minimum": 1,
-      "default": 1
-    },
-    "dataEndColumn": {
-      "type": "integer",
-      "description": "The last column containing data (1-indexed)",
-      "minimum": 1
-    },
+
     "defaultSort": {
       "type": "array",
       "description": "Default sorting configuration for the sheet",
@@ -73,47 +57,7 @@
         "additionalProperties": false
       }
     },
-    "filterRow": {
-      "type": "integer",
-      "description": "The row number used for smart filtering (1-indexed)",
-      "minimum": 1
-    },
-    "filterRange": {
-      "type": "object",
-      "description": "The column range used for smart filtering",
-      "required": ["startColumn", "endColumn"],
-      "properties": {
-        "startColumn": {
-          "type": "integer",
-          "description": "First column of filter range (1-indexed)",
-          "minimum": 1
-        },
-        "endColumn": {
-          "type": "integer",
-          "description": "Last column of filter range (1-indexed)",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "clearFiltersCell": {
-      "type": "object",
-      "description": "Cell location for the clear filters button",
-      "required": ["row", "column"],
-      "properties": {
-        "row": {
-          "type": "integer",
-          "description": "Row number of the clear filters cell (1-indexed)",
-          "minimum": 1
-        },
-        "column": {
-          "type": "integer",
-          "description": "Column number of the clear filters cell (1-indexed)",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
-    },
+
     "fields": {
       "type": "object",
       "description": "Field definitions with validation rules using JSON Schema",

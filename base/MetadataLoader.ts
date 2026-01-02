@@ -9,22 +9,10 @@ import entryMetaSchema from "../types/entry-meta.schema.json";
 export interface IEntryMeta {
   sheetId: number;
   columns: string[];
-  headerRow: number;
-  dataStartColumn: number;
-  dataEndColumn: number;
   defaultSort?: {
     column: string;
     ascending: boolean;
   }[];
-  filterRow?: number;
-  filterRange?: {
-    startColumn: number;
-    endColumn: number;
-  };
-  clearFiltersCell?: {
-    row: number;
-    column: number;
-  };
   "@context"?: {
     "@vocab"?: string;
     [key: string]: any;
@@ -116,22 +104,6 @@ export class MetadataLoader {
             `Default sort column "${sort.column}" not found in columns array`
           );
         }
-      }
-    }
-
-    // Additional validation: ensure dataEndColumn >= dataStartColumn
-    if (validatedMeta.dataEndColumn < validatedMeta.dataStartColumn) {
-      throw new Error(
-        `dataEndColumn (${validatedMeta.dataEndColumn}) must be >= dataStartColumn (${validatedMeta.dataStartColumn})`
-      );
-    }
-
-    // Additional validation: ensure filterRange is valid if present
-    if (validatedMeta.filterRange) {
-      if (validatedMeta.filterRange.endColumn < validatedMeta.filterRange.startColumn) {
-        throw new Error(
-          `filterRange.endColumn (${validatedMeta.filterRange.endColumn}) must be >= filterRange.startColumn (${validatedMeta.filterRange.startColumn})`
-        );
       }
     }
 
