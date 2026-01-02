@@ -142,12 +142,25 @@ export class SheetService {
   static async updateRows(sheetId: number, updates: { row: number; values: SheetValue[] }[]): Promise<void> {
     const sheet = this.getSheet(sheetId);
 
+    // Filter out any attempts to update the header row (row 1)
+    const validUpdates = updates.filter(update => {
+      if (update.row === 1) {
+        Logger.log(`Warning: Ignoring attempt to update header row (row 1) in sheet ${sheetId}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validUpdates.length === 0) {
+      return;
+    }
+
     // Group updates by consecutive rows for better performance
-    updates.sort((a, b) => a.row - b.row);
+    validUpdates.sort((a, b) => a.row - b.row);
     const chunks: { row: number; values: SheetValue[] }[][] = [];
     let currentChunk: { row: number; values: SheetValue[] }[] = [];
 
-    updates.forEach((update) => {
+    validUpdates.forEach((update) => {
       if (currentChunk.length === 0 || update.row === currentChunk[currentChunk.length - 1].row + 1) {
         currentChunk.push(update);
       } else {
@@ -415,8 +428,8 @@ export class SheetService {
 
     // Find matching row numbers
     const matchingRowNumbers: number[] = [];
-    const startRow = rowRange ? rowRange.minRow : headerRow + 1;
-    const endRow = rowRange ? rowRange.maxRow : lastRow;
+    const startRow = rowRange ? Math.max(rowRange.minRow, headerRow + 1) : headerRow + 1;
+    const endRow = rowRange ? Math.max(rowRange.maxRow, headerRow + 1) : lastRow;
 
     for (let i = 0; i < endRow - startRow + 1; i++) {
       let allFiltersMatch = true;
@@ -466,12 +479,18 @@ export class SheetService {
     // Fetch complete rows for matches in minimal operations
     const matches: RowResult[] = [];
     for (const range of ranges) {
+      // Safety check: never fetch the header row
+      if (range.start <= headerRow) {
+        Logger.log(`Warning: Skipping range starting at header row ${range.start} in sheet ${sheetId}`);
+        continue;
+      }
+      
       const values = sheet.getRange(range.start, 1, range.count, columnMap.length).getValues();
 
       for (let i = 0; i < values.length; i++) {
         matches.push({
           data: values[i].map((cell) => this.convertFromSheet(cell)),
-          rowNumber: range.originalRows[i], // Use the actual row number we found
+          rowNumber: range.originalRows[i],
         });
       }
     }

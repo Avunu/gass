@@ -630,7 +630,13 @@ export abstract class Entry {
   ): void {
     const sheet = SheetService.getSheet(this._meta.sheetId);
     const lastRow = sheet.getLastRow();
-    const numRows = Math.max(1, lastRow - 1); // headerRow is always 1
+    
+    // Skip sorting if there are no data rows (only header row exists)
+    if (lastRow <= 1) {
+      return;
+    }
+    
+    const numRows = lastRow - 1; // headerRow is always 1
     const dataEndColumn = this._meta.columns.length; // Calculate from columns array
 
     const range = sheet.getRange(
