@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <!-- Material Design Web Components via esm.run CDN as specified in requirements -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@material/web/": "https://esm.run/@material/web/"
+        }
+      }
+    </script>
+    <script type="module">
+      import "@material/web/all.js";
+      import { styles as typescaleStyles } from "@material/web/typography/md-typescale-styles.js";
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
+    <style>
+      body {
+        font-family: 'Roboto', sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      
+      .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .form-title {
+        font-size: 24px;
+        font-weight: 500;
+        margin-bottom: 24px;
+        color: #1a1a1a;
+      }
+      
+      .form-field {
+        margin-bottom: 20px;
+      }
+      
+      .form-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #5f6368;
+      }
+      
+      md-filled-text-field {
+        width: 100%;
+      }
+      
+      md-filled-select {
+        width: 100%;
+      }
+      
+      .chip-multi-select {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .chips-display {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        background-color: #fafafa;
+      }
+      
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        background-color: #e0e0e0;
+        border-radius: 16px;
+        font-size: 14px;
+        gap: 4px;
+      }
+      
+      .chip-remove {
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        margin-left: 4px;
+        color: #666;
+        line-height: 1;
+      }
+      
+      .chip-remove:hover {
+        color: #d32f2f;
+      }
+      
+      .chip-select {
+        width: 100%;
+      }
+      
+      .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #e0e0e0;
+      }
+      
+      .error-message {
+        color: #d32f2f;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      
+      .success-message {
+        color: #388e3c;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="form-container">
+      <div class="form-title"><?= isEdit ? 'Edit' : 'Add' ?> Entry</div>
+      <form id="entryForm">
+        <div id="formFields"></div>
+        
+        <div class="form-actions">
+          <md-text-button type="button" onclick="closeDialog()">Cancel</md-text-button>
+          <md-filled-button type="submit">Save</md-filled-button>
+        </div>
+      </form>
+      
+      <div id="messageContainer"></div>
+    </div>
+
+    <script>
+      // Entry metadata and data passed from server
+      // Note: Data is JSON-serialized by Google Apps Script which handles proper escaping
+      const entryMeta = <?!= entryMeta ?>;
+      const entryData = <?!= entryData ?>;
+      const linkOptions = <?!= linkOptions ?>;
+      const isEdit = <?= isEdit ?>;
+      const entryTypeName = '<?= entryTypeName ?>';
+      const rowNumber = <?= typeof rowNumber !== 'undefined' ? rowNumber : 'null' ?>;
+
+      // Initialize form fields
+      function initializeForm() {
+        const formFields = document.getElementById('formFields');
+        
+        entryMeta.columns.forEach(column => {
+          const value = entryData[column] || '';
+          const fieldDef = entryMeta.fields?.[column];
+          
+          const fieldDiv = document.createElement('div');
+          fieldDiv.className = 'form-field';
+          
+          const label = document.createElement('label');
+          label.textContent = fieldDef?.description || formatColumnName(column);
+          if (fieldDef?.required) {
+            label.textContent += ' *';
+          }
+          fieldDiv.appendChild(label);
+          
+          // Use JSON Schema field definition if available, otherwise fall back to heuristics
+          const fieldType = fieldDef ? getFieldTypeFromSchema(fieldDef) : getFieldType(column, value);
+          
+          // Check if this is a Link or LinkArray field
+          if (fieldDef?.['@type'] === 'Link' || fieldDef?.['@type'] === 'LinkArray') {
+            const isLinkArray = fieldDef['@type'] === 'LinkArray';
+            const options = linkOptions[column] || [];
+            
+            if (isLinkArray) {
+              // Multi-select for LinkArray fields using chips
+              const separator = fieldDef.separator || ',';
+              const currentValues = value ? String(value).split(separator).map(v => v.trim()) : [];
+              
+              // Create container for chip-based multi-select
+              const chipContainer = document.createElement('div');
+              chipContainer.className = 'chip-multi-select';
+              chipContainer.setAttribute('data-name', column);
+              chipContainer.setAttribute('data-separator', separator);
+              
+              // Create chips display area
+              const chipsDisplay = document.createElement('div');
+              chipsDisplay.className = 'chips-display';
+              chipContainer.appendChild(chipsDisplay);
+              
+              // Create dropdown select for adding items
+              const select = document.createElement('md-filled-select');
+              select.className = 'chip-select';
+              select.setAttribute('label', 'Add item...');
+              
+              // Add empty option
+              const emptyOption = document.createElement('md-select-option');
+              emptyOption.value = '';
+              emptyOption.textContent = '-- Select to add --';
+              select.appendChild(emptyOption);
+              
+              // Add options from linked entries
+              options.forEach(option => {
+                const selectOption = document.createElement('md-select-option');
+                selectOption.value = option;
+                selectOption.textContent = option;
+                select.appendChild(selectOption);
+              });
+              
+              chipContainer.appendChild(select);
+              
+              // Hidden input to store selected values
+              const hiddenInput = document.createElement('input');
+              hiddenInput.type = 'hidden';
+              hiddenInput.name = column;
+              hiddenInput.value = currentValues.join(separator);
+              chipContainer.appendChild(hiddenInput);
+              
+              fieldDiv.appendChild(chipContainer);
+              
+              // Initialize chips from current values
+              currentValues.forEach(val => {
+                if (val) {
+                  addChip(chipsDisplay, val, hiddenInput, separator);
+                }
+              });
+              
+              // Handle selection changes
+              select.addEventListener('change', function() {
+                const selectedValue = this.value;
+                if (selectedValue) {
+                  // Add chip if not already present
+                  const currentVals = hiddenInput.value ? hiddenInput.value.split(separator).map(v => v.trim()) : [];
+                  if (!currentVals.includes(selectedValue)) {
+                    addChip(chipsDisplay, selectedValue, hiddenInput, separator);
+                  }
+                  // Reset select
+                  this.value = '';
+                }
+              });
+            } else {
+              // Single-select for Link fields
+              const select = document.createElement('md-filled-select');
+              select.setAttribute('name', column);
+              if (fieldDef?.required) {
+                select.setAttribute('required', 'true');
+              }
+              
+              // Add empty option if not required
+              if (!fieldDef?.required) {
+                const emptyOption = document.createElement('md-select-option');
+                emptyOption.value = '';
+                emptyOption.textContent = '-- Select --';
+                select.appendChild(emptyOption);
+              }
+              
+              // Add options from linked entries
+              options.forEach(option => {
+                const selectOption = document.createElement('md-select-option');
+                selectOption.value = option;
+                selectOption.textContent = option;
+                if (value === option) {
+                  selectOption.selected = true;
+                }
+                select.appendChild(selectOption);
+              });
+              
+              fieldDiv.appendChild(select);
+            }
+          } else if (fieldType === 'select' && fieldDef?.enum) {
+            // Dropdown for enum fields
+            const select = document.createElement('md-filled-select');
+            select.setAttribute('name', column);
+            if (fieldDef?.required) {
+              select.setAttribute('required', 'true');
+            }
+            
+            // Add options
+            fieldDef.enum.forEach(optionValue => {
+              const option = document.createElement('md-select-option');
+              option.value = optionValue;
+              option.textContent = optionValue;
+              if (value === optionValue) {
+                option.selected = true;
+              }
+              select.appendChild(option);
+            });
+            
+            fieldDiv.appendChild(select);
+          } else if (fieldType === 'date' || fieldType === 'datetime' || fieldType === 'time') {
+            // Date/time fields
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', fieldType === 'datetime' ? 'datetime-local' : fieldType);
+            textField.value = formatDateValue(value, fieldType);
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            fieldDiv.appendChild(textField);
+          } else if (fieldType === 'number' || fieldType === 'integer') {
+            // Number fields
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', 'number');
+            if (fieldType === 'integer') {
+              textField.setAttribute('step', '1');
+            }
+            if (fieldDef?.minimum !== undefined) {
+              textField.setAttribute('min', String(fieldDef.minimum));
+            }
+            if (fieldDef?.maximum !== undefined) {
+              textField.setAttribute('max', String(fieldDef.maximum));
+            }
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            fieldDiv.appendChild(textField);
+          } else if (fieldType === 'boolean') {
+            // Checkbox for boolean fields
+            const checkbox = document.createElement('md-checkbox');
+            checkbox.setAttribute('name', column);
+            checkbox.checked = value === true || value === 'true' || value === 'TRUE';
+            fieldDiv.appendChild(checkbox);
+          } else if (fieldType === 'email') {
+            // Email field
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', 'email');
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            if (fieldDef?.pattern) {
+              textField.setAttribute('pattern', fieldDef.pattern);
+            }
+            fieldDiv.appendChild(textField);
+          } else if (fieldType === 'url') {
+            // URL field
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.setAttribute('type', 'url');
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            fieldDiv.appendChild(textField);
+          } else {
+            // Default to text field
+            const textField = document.createElement('md-filled-text-field');
+            textField.setAttribute('name', column);
+            textField.value = value;
+            if (fieldDef?.required) {
+              textField.setAttribute('required', 'true');
+            }
+            if (fieldDef?.minLength) {
+              textField.setAttribute('minlength', String(fieldDef.minLength));
+            }
+            if (fieldDef?.maxLength) {
+              textField.setAttribute('maxlength', String(fieldDef.maxLength));
+            }
+            if (fieldDef?.pattern) {
+              textField.setAttribute('pattern', fieldDef.pattern);
+            }
+            fieldDiv.appendChild(textField);
+          }
+          
+          formFields.appendChild(fieldDiv);
+        });
+      }
+      
+      // Function to add a chip to the display
+      function addChip(chipsDisplay, value, hiddenInput, separator) {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.setAttribute('data-value', value);
+        
+        // Add text span for the value
+        const textSpan = document.createElement('span');
+        textSpan.textContent = value;
+        chip.appendChild(textSpan);
+        
+        // Add remove button
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'chip-remove';
+        removeBtn.textContent = '×';
+        removeBtn.onclick = function() {
+          // Remove chip
+          chip.remove();
+          // Update hidden input
+          updateHiddenInput(chipsDisplay, hiddenInput, separator);
+        };
+        
+        chip.appendChild(removeBtn);
+        chipsDisplay.appendChild(chip);
+        
+        // Update hidden input
+        updateHiddenInput(chipsDisplay, hiddenInput, separator);
+      }
+      
+      // Function to update hidden input value from chips
+      function updateHiddenInput(chipsDisplay, hiddenInput, separator) {
+        const chips = chipsDisplay.querySelectorAll('.chip');
+        const values = Array.from(chips).map(chip => chip.getAttribute('data-value'));
+        hiddenInput.value = values.join(separator);
+      }
+      
+      // Format column name for display
+      function formatColumnName(column) {
+        return column
+          .replace(/([A-Z])/g, ' $1')
+          .replace(/^./, str => str.toUpperCase())
+          .trim();
+      }
+      
+      // Get field type from JSON Schema field definition
+      function getFieldTypeFromSchema(fieldDef) {
+        // Check for enum first
+        if (fieldDef.enum && fieldDef.enum.length > 0) {
+          return 'select';
+        }
+        
+        // Check format
+        if (fieldDef.format) {
+          if (fieldDef.format === 'email') return 'email';
+          if (fieldDef.format === 'uri' || fieldDef.format === 'url') return 'url';
+          if (fieldDef.format === 'date') return 'date';
+          if (fieldDef.format === 'time') return 'time';
+          if (fieldDef.format === 'date-time') return 'datetime';
+        }
+        
+        // Check type - handle both single type and array of types
+        let type = fieldDef.type;
+        if (Array.isArray(type)) {
+          // For array types, prioritize non-null types
+          type = type.find(t => t !== 'null') || type[0];
+        }
+        
+        if (type === 'boolean') return 'boolean';
+        if (type === 'integer') return 'integer';
+        if (type === 'number') return 'number';
+        
+        return 'text';
+      }
+      
+      // Determine field type based on column name or value (fallback for legacy metadata)
+      function getFieldType(column, value) {
+        const lowerColumn = column.toLowerCase();
+        
+        if (lowerColumn.includes('date') || lowerColumn.includes('time')) {
+          return 'date';
+        }
+        
+        if (lowerColumn.includes('amount') || lowerColumn.includes('price') || 
+            lowerColumn.includes('quantity') || lowerColumn.includes('count')) {
+          return 'number';
+        }
+        
+        if (typeof value === 'boolean' || lowerColumn.includes('is') || 
+            lowerColumn.includes('has') || lowerColumn.includes('active')) {
+          return 'boolean';
+        }
+        
+        return 'text';
+      }
+      
+      // Format date value for input
+      function formatDateValue(value, fieldType) {
+        if (!value) return '';
+        
+        if (value instanceof Date || typeof value === 'object') {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            if (fieldType === 'datetime') {
+              // Format as YYYY-MM-DDTHH:MM for datetime-local input
+              return date.toISOString().slice(0, 16);
+            } else if (fieldType === 'time') {
+              // Format as HH:MM
+              return date.toTimeString().slice(0, 5);
+            } else {
+              // Format as YYYY-MM-DD for date input
+              return date.toISOString().split('T')[0];
+            }
+          }
+        }
+        
+        // Try to parse as ISO string
+        if (typeof value === 'string') {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            if (fieldType === 'datetime') {
+              return date.toISOString().slice(0, 16);
+            } else if (fieldType === 'time') {
+              return date.toTimeString().slice(0, 5);
+            } else {
+              return date.toISOString().split('T')[0];
+            }
+          }
+        }
+        
+        return value;
+      }
+      
+      // Handle form submission
+      document.getElementById('entryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {};
+        const formElements = this.elements;
+        
+        // Collect all form elements including hidden inputs
+        for (let i = 0; i < formElements.length; i++) {
+          const element = formElements[i];
+          if (element.name) {
+            if (element.tagName === 'MD-CHECKBOX') {
+              // Regular checkbox (boolean field)
+              formData[element.name] = element.checked;
+            } else {
+              // Regular input field (includes hidden inputs for chip multi-select)
+              formData[element.name] = element.value;
+            }
+          }
+        }
+        
+        // Show loading state
+        showMessage('Saving...', 'info');
+        
+        // Call server-side function to save
+        google.script.run
+          .withSuccessHandler(onSaveSuccess)
+          .withFailureHandler(onSaveError)
+          .saveEntryFromDialog(entryTypeName, formData, isEdit, rowNumber);
+      });
+      
+      function onSaveSuccess(result) {
+        if (result.success) {
+          showMessage(result.message || 'Entry saved successfully', 'success');
+          setTimeout(() => {
+            google.script.host.close();
+          }, 1500);
+        } else {
+          showMessage(result.message || 'Failed to save entry', 'error');
+        }
+      }
+      
+      function onSaveError(error) {
+        showMessage('Error: ' + error.message, 'error');
+      }
+      
+      function showMessage(message, type) {
+        const container = document.getElementById('messageContainer');
+        container.innerHTML = `<div class="${type}-message">${message}</div>`;
+      }
+      
+      function closeDialog() {
+        google.script.host.close();
+      }
+      
+      // Initialize form on load
+      window.addEventListener('load', initializeForm);
+    </script>
+  </body>
+</html>

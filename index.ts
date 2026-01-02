@@ -14,6 +14,7 @@ export { DocService } from "./services/DocService";
 export { ContactsService } from "./services/ContactsService";
 export { FormService } from "./services/FormService";
 export { TemplateService } from "./services/TemplateService";
+export { DataEntryService } from "./services/DataEntryService";
 
 // Core types
 export { ScheduledJob, JobFrequency, EntryWithJobs } from "./types/jobs";

@@ -2,6 +2,7 @@ import { Entry, IEntryMeta } from "./Entry";
 import { FilterCriteria, SheetValue } from "../services/SheetService";
 import { SchedulerService } from "./ScheduledJob";
 import { ScheduledJob } from "../types/jobs";
+import { DataEntryService } from "../services/DataEntryService";
 
 export interface MenuItem {
   label: string;
@@ -11,7 +12,7 @@ export interface MenuItem {
 
 // Add type for global menu functions
 export interface MenuHandler {
-  (): Promise<void> | void;
+  (...args: any[]): Promise<any> | any;
 }
 
 export interface GlobalMenuFunctions {
@@ -21,6 +22,7 @@ export interface GlobalMenuFunctions {
 type EntryConstructor = {
   new (): Entry;
   _meta: IEntryMeta;
+  _instances: Map<string, Entry>;
   getMenuItems?: () => MenuItem[];
   get(filters: FilterCriteria): Promise<Entry[]>;
   getValue(filters: FilterCriteria, column: string): Promise<SheetValue>;
@@ -43,6 +45,8 @@ export class EntryRegistry {
     // Register all provided entry types
     entries.forEach((entryType) => {
       this.entryTypes.set(entryType._meta.sheetId, entryType);
+      // Also register with DataEntryService
+      DataEntryService.registerEntryType(entryType.name, entryType);
     });
 
     this.initialized = true;
@@ -218,5 +222,104 @@ export class EntryRegistry {
         }
       }
     }
+  }
+
+  /**
+   * Create "Data Entry" menu with Add/Edit Entry options for the active sheet
+   */
+  static createDataEntryMenu(): void {
+    this.ensureInitialized();
+    
+    const ui = SpreadsheetApp.getUi();
+    const menu = ui.createMenu("Data Entry");
+    
+    // Get the active sheet to determine which entry type to use
+    const activeSheet = SpreadsheetApp.getActiveSheet();
+    const sheetId = activeSheet.getSheetId();
+    const EntryType = this.getEntryTypeBySheetId(sheetId);
+    
+    if (EntryType) {
+      // Create sidebar menu item
+      menu.addItem("Show Sidebar", "showDataEntrySidebar");
+      menu.addSeparator();
+      
+      // Create Add Entry menu item
+      menu.addItem("Add Entry", "showAddEntryDialog_" + EntryType.name);
+      
+      // Create Edit Entry menu item
+      menu.addItem("Edit Entry", "showEditEntryDialog_" + EntryType.name);
+    } else {
+      menu.addItem("No entry type for this sheet", "");
+    }
+    
+    menu.addToUi();
+  }
+
+  /**
+   * Register data entry menu functions globally
+   * Creates showAddEntryDialog and showEditEntryDialog functions for each entry type
+   */
+  static registerDataEntryMenuFunctions(global: GlobalMenuFunctions): void {
+    this.getAllEntryTypes().forEach((EntryType) => {
+      // Add Entry function
+      global[`showAddEntryDialog_${EntryType.name}`] = () => {
+        try {
+          DataEntryService.showAddEntryDialog(EntryType);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            `Error: ${errorMsg}`,
+            "Add Entry Failed",
+            -1
+          );
+          throw error;
+        }
+      };
+
+      // Edit Entry function
+      global[`showEditEntryDialog_${EntryType.name}`] = () => {
+        try {
+          DataEntryService.showEditEntryDialog(EntryType);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            `Error: ${errorMsg}`,
+            "Edit Entry Failed",
+            -1
+          );
+          throw error;
+        }
+      };
+    });
+
+    // Register the sidebar function globally
+    global.showDataEntrySidebar = () => {
+      try {
+        DataEntryService.showDataEntrySidebar();
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          `Error: ${errorMsg}`,
+          "Show Sidebar Failed",
+          -1
+        );
+        throw error;
+      }
+    };
+
+    // Register the sidebar form data loader globally
+    global.loadSidebarFormData = (entryTypeName: string, mode: 'new' | 'edit') => {
+      return DataEntryService.loadSidebarFormData(entryTypeName, mode);
+    };
+
+    // Register the save function globally so it can be called from the dialog
+    global.saveEntryFromDialog = (
+      entryTypeName: string,
+      entryData: { [key: string]: SheetValue },
+      isEdit: boolean,
+      rowNumber?: number
+    ) => {
+      return DataEntryService.saveEntryFromDialog(entryTypeName, entryData, isEdit, rowNumber);
+    };
   }
 }

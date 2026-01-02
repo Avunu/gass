@@ -16,6 +16,7 @@ Sheets.
 - **Job scheduling**: Built-in job scheduling system
 - **Menu integration**: Automatic menu generation from entry types
 - **Format validation**: Built-in validators for email, date, URI, and more via AJV
+- **Metadata-driven forms**: Auto-generated data entry dialogs with Material Design Web Components
 
 ## Structure
 
@@ -33,7 +34,10 @@ lib/
 │   ├── DocService.ts      # Google Docs utilities
 │   ├── ContactsService.ts # Google Contacts integration
 │   ├── FormService.ts     # Google Forms utilities
-│   └── TemplateService.ts # Template processing
+│   ├── TemplateService.ts # Template processing
+│   └── DataEntryService.ts # Metadata-driven data entry forms
+├── templates/      # HTML templates for dialogs
+│   └── DataEntryDialog.html # Data entry form template
 ├── types/          # Core type definitions
 │   ├── jobs.ts            # Job scheduling types
 │   └── formService.d.ts   # Form service type definitions
@@ -224,3 +228,116 @@ await MyEntity.batchSave(entities);
 - **Validation**: All records validated before any database operation
 - **Atomicity**: All records processed together
 - **Error handling**: Detailed validation errors for the entire batch
+
+## Metadata-Driven Data Entry Forms
+
+GASS provides automatic generation of data entry dialogs based on your Entry metadata. These dialogs use Material Design Web Components for a modern, native-looking interface.
+
+### Setting Up Data Entry Menus
+
+After initializing the registry, register the data entry menu functions:
+
+```typescript
+import { EntryRegistry, GlobalMenuFunctions } from "./lib";
+
+// Initialize registry with your entry types
+EntryRegistry.init([MyEntity, AnotherEntity]);
+
+// Register data entry menu functions in global scope
+const global = globalThis as unknown as GlobalMenuFunctions;
+EntryRegistry.registerDataEntryMenuFunctions(global);
+
+// Create the Data Entry menu when the spreadsheet opens
+function onOpen() {
+  EntryRegistry.createDataEntryMenu();
+}
+```
+
+### Using the Data Entry Dialog
+
+The Data Entry menu will automatically appear with two options:
+
+1. **Add Entry**: Opens a blank form to create a new entry
+2. **Edit Entry**: Opens a form pre-filled with data from the currently selected row
+
+The form automatically generates fields based on your Entry metadata:
+- Text fields for string properties
+- Number fields for numeric properties
+- Checkboxes for boolean properties
+- Date fields for date/time properties
+
+All fields are validated using your Entry's `validate()` method before saving.
+
+### Field Type Detection
+
+The DataEntryService automatically detects appropriate field types based on:
+- Column names (e.g., "date", "amount", "isActive")
+- Data types (boolean, number, string)
+- Property values
+
+### Material Design Components
+
+The dialog includes the following Material Design Web Components loaded via CDN:
+- `md-filled-text-field` for text inputs
+- `md-checkbox` for boolean values
+- `md-filled-button` and `md-text-button` for actions
+
+All components follow Material Design 3 guidelines with the Roboto font family.
+
+### Customization
+
+You can customize the dialog by:
+1. Modifying the `templates/DataEntryDialog.html` template
+2. Extending the `DataEntryService` class
+3. Overriding field type detection logic
+
+### Example
+
+```typescript
+// In your Apps Script project
+import { EntryRegistry, DataEntryService } from "./lib";
+
+class Contact extends Entry {
+  static override _meta = {
+    sheetId: 123456789,
+    columns: ["id", "name", "email", "phone", "isActive", "joinDate"],
+    headerRow: 1,
+    dataStartColumn: 1,
+    dataEndColumn: 6,
+  };
+
+  id: string = "";
+  name: string = "";
+  email: string = "";
+  phone: string = "";
+  isActive: boolean = false;
+  joinDate: Date = new Date();
+
+  getCacheKey(): string {
+    return this.id;
+  }
+
+  validate(): ValidationResult {
+    const errors: string[] = [];
+    if (!this.name) errors.push("Name is required");
+    if (!this.email) errors.push("Email is required");
+    return { isValid: errors.length === 0, errors };
+  }
+}
+
+// Initialize and register
+EntryRegistry.init([Contact]);
+const global = globalThis as unknown as GlobalMenuFunctions;
+EntryRegistry.registerDataEntryMenuFunctions(global);
+
+function onOpen() {
+  EntryRegistry.createDataEntryMenu();
+}
+```
+
+When a user selects "Add Entry" from the Data Entry menu, they'll see a dialog with:
+- Text fields for id, name, email, and phone
+- A checkbox for isActive
+- A date field for joinDate
+
+The form validates and saves the data using your Contact class's validation and save logic.
