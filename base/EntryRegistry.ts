@@ -27,7 +27,6 @@ type EntryConstructor = {
   get(filters: FilterCriteria): Promise<Entry[]>;
   getValue(filters: FilterCriteria, column: string): Promise<SheetValue>;
   getAll(): Promise<Entry[]>;
-  applySmartFilters(): void;
   batchSave(entries: Entry[]): Promise<void>;
   batchInsert(dataObjects: Array<{ [key: string]: SheetValue }>): Promise<Entry[]>;
 };
@@ -94,13 +93,9 @@ export class EntryRegistry {
     const row = range.getRow();
     // never act on the first row changes
     if (row === 1) return;
-    const column = range.getColumn();
 
     const EntryType = this.getEntryTypeBySheetId(sheetId);
     if (!EntryType) return;
-
-    // Check if it's the header row (always row 1)
-    if (row === 1) return;
 
     // Skip if the value didn't actually change
     if (oldValue === value) return;
