@@ -9,7 +9,7 @@ This refactor successfully implements a JSON Schema-based metadata system for GA
 ### 1. JSON Schema Definition (`types/entry-meta.schema.json`)
 - **Purpose:** Defines the structure and validation rules for Entry metadata
 - **Features:**
-  - Core metadata fields (sheetId, columns, headerRow, etc.)
+  - Core metadata fields (sheetId, columns, etc.)
   - Field-level validation definitions
   - Support for all JSON Schema validation types
   - Extensible for future enhancements

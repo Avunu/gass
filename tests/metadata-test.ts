@@ -13,9 +13,6 @@ console.log("Test 1: Loading valid metadata...");
 try {
   const validMetadata = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 3,
     columns: ["id", "name", "email"],
     defaultSort: [{ column: "name", ascending: true }],
     fields: {
@@ -50,9 +47,6 @@ try {
 console.log("\nTest 2: Testing invalid metadata (missing sheetId)...");
 try {
   const invalidMetadata = {
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 3,
     columns: ["id", "name"],
   };
 
@@ -68,9 +62,6 @@ console.log("\nTest 3: Validating valid entry data...");
 try {
   const metadata = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 3,
     columns: ["id", "name", "email"],
     fields: {
       id: {
@@ -112,9 +103,6 @@ console.log("\nTest 4: Validating invalid entry data (bad email)...");
 try {
   const metadata = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 3,
     columns: ["id", "name", "email"],
     fields: {
       email: {
@@ -148,9 +136,6 @@ console.log("\nTest 5: Validating data with missing required field...");
 try {
   const metadata = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 3,
     columns: ["id", "name", "email"],
     fields: {
       name: {
@@ -187,9 +172,6 @@ console.log("\nTest 6: Testing enum validation...");
 try {
   const metadata = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 2,
     columns: ["id", "status"],
     fields: {
       status: {

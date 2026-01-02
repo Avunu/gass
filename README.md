@@ -69,9 +69,6 @@ Create a `.meta.json` file with your metadata and validation rules:
 {
   "$schema": "../types/entry-meta.schema.json",
   "sheetId": 123456789,
-  "headerRow": 1,
-  "dataStartColumn": 1,
-  "dataEndColumn": 5,
   "columns": ["id", "name", "email", "phone", "status"],
   "defaultSort": [{ "column": "name", "ascending": true }],
   "fields": {
@@ -301,9 +298,6 @@ class Contact extends Entry {
   static override _meta = {
     sheetId: 123456789,
     columns: ["id", "name", "email", "phone", "isActive", "joinDate"],
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 6,
   };
 
   id: string = "";

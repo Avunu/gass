@@ -99,44 +99,20 @@ export class EntryRegistry {
     const EntryType = this.getEntryTypeBySheetId(sheetId);
     if (!EntryType) return;
 
-    // Check if edit is within filter range
-    const meta = EntryType._meta;
-    if (
-      meta.filterRow &&
-      meta.filterRange &&
-      row === meta.filterRow &&
-      column >= meta.filterRange.startColumn &&
-      column <= meta.filterRange.endColumn
-    ) {
-      // This is a filter edit - handle it separately
-      EntryType.applySmartFilters();
-      return;
-    }
-
-    // Clear filters if clear button was clicked
-    if (
-      meta.clearFiltersCell &&
-      row === meta.clearFiltersCell.row &&
-      column === meta.clearFiltersCell.column &&
-      value === "TRUE"
-    ) {
-      EntryType.applySmartFilters();
-      return;
-    }
-
-    // Skip if it's the header row
-    if (row === meta.headerRow) return;
+    // Check if it's the header row (always row 1)
+    if (row === 1) return;
 
     // Skip if the value didn't actually change
     if (oldValue === value) return;
 
     try {
       // Get the full row data instead of just the edited cell
+      const dataEndColumn = EntryType._meta.columns.length; // Calculate from columns array
       const fullRowRange = sheet.getRange(
         row,
-        EntryType._meta.dataStartColumn,
+        1, // dataStartColumn is always 1
         1,
-        EntryType._meta.dataEndColumn - EntryType._meta.dataStartColumn + 1,
+        dataEndColumn,
       );
       const rowData = fullRowRange.getValues()[0];
 

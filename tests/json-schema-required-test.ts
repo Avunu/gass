@@ -15,9 +15,6 @@ console.log("Test 1: Metadata without fields should fail...");
 try {
   const metadataWithoutFields = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 2,
     columns: ["id", "name"],
     // Missing fields!
   };
@@ -42,9 +39,6 @@ console.log("\nTest 2: Metadata with empty fields object...");
 try {
   const metadataWithEmptyFields = {
     sheetId: 123456789,
-    headerRow: 1,
-    dataStartColumn: 1,
-    dataEndColumn: 2,
     columns: ["id", "name"],
     fields: {}, // Empty fields object
   };
@@ -66,9 +60,6 @@ console.log("\nTest 3: Proper JSON Schema metadata works...");
 
 const PROPER_META = {
   sheetId: 987654321,
-  headerRow: 1,
-  dataStartColumn: 1,
-  dataEndColumn: 3,
   columns: ["id", "name", "email"],
   defaultSort: [{ column: "name", ascending: true }],
   fields: {
@@ -150,9 +141,6 @@ console.log("\nTest 4: Complex validation rules (enum, pattern, length)...");
 
 const COMPLEX_META = {
   sheetId: 111111111,
-  headerRow: 1,
-  dataStartColumn: 1,
-  dataEndColumn: 4,
   columns: ["id", "status", "phone", "description"],
   fields: {
     status: {

@@ -113,9 +113,6 @@ For `LinkArray` types only. Specifies the separator character for array values. 
     "gass": "https://github.com/Avunu/gass/vocab#"
   },
   "sheetId": 2074703377,
-  "headerRow": 1,
-  "dataStartColumn": 1,
-  "dataEndColumn": 4,
   "columns": ["service", "size", "expense", "qty"],
   "fields": {
     "service": {

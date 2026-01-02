@@ -38,9 +38,6 @@ import { Entry, IEntryMeta, ValidationResult } from "./lib/base/Entry";
 
 const USER_META: IEntryMeta = {
   sheetId: 123456789,
-  headerRow: 1,
-  dataStartColumn: 1,
-  dataEndColumn: 6,
   columns: ["id", "name", "email", "phone", "status", "createdAt"],
   defaultSort: [{ column: "name", ascending: true }],
 };
@@ -101,9 +98,6 @@ export class User extends Entry {
 {
   "$schema": "../types/entry-meta.schema.json",
   "sheetId": 123456789,
-  "headerRow": 1,
-  "dataStartColumn": 1,
-  "dataEndColumn": 6,
   "columns": ["id", "name", "email", "phone", "status", "createdAt"],
   "defaultSort": [
     { "column": "name", "ascending": true }

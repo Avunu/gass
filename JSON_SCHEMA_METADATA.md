@@ -22,9 +22,6 @@ Create a `.meta.json` file alongside your Entry class:
 {
   "$schema": "../types/entry-meta.schema.json",
   "sheetId": 123456789,
-  "headerRow": 1,
-  "dataStartColumn": 1,
-  "dataEndColumn": 4,
   "columns": ["id", "name", "email", "status"],
   "fields": {
     "id": {
@@ -88,14 +85,8 @@ export class MyEntity extends Entry {
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `sheetId` | integer | Yes | Google Sheet identifier |
-| `columns` | array[string] | Yes | Column names in order |
-| `headerRow` | integer | Yes | Header row number (1-indexed) |
-| `dataStartColumn` | integer | Yes | First data column (1-indexed) |
-| `dataEndColumn` | integer | Yes | Last data column (1-indexed) |
+| `columns` | array[string] | Yes | Column names in order (starting from column A) |
 | `defaultSort` | array | No | Default sorting configuration |
-| `filterRow` | integer | No | Smart filter row number |
-| `filterRange` | object | No | Filter column range |
-| `clearFiltersCell` | object | No | Clear filters button location |
 | `fields` | object | No | Field validation definitions |
 
 ### Field Validation Properties
@@ -284,9 +275,6 @@ export class MyEntity extends Entry {
 {
   "$schema": "../types/entry-meta.schema.json",
   "sheetId": 123456789,
-  "headerRow": 1,
-  "dataStartColumn": 1,
-  "dataEndColumn": 3,
   "columns": ["id", "name", "email"],
   "defaultSort": [{ "column": "name", "ascending": true }],
   "fields": {

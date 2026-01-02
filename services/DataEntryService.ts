@@ -124,17 +124,18 @@ export class DataEntryService {
     }
     const row = activeRange.getRow();
 
-    // Check if it's the header row
-    if (row === EntryClass._meta.headerRow) {
+    // Check if it's the header row (always row 1)
+    if (row === 1) {
       throw new Error("Cannot edit the header row");
     }
 
     // Get the row data
+    const dataEndColumn = EntryClass._meta.columns.length; // Calculate from columns array
     const fullRowRange = sheet.getRange(
       row,
-      EntryClass._meta.dataStartColumn,
+      1, // dataStartColumn is always 1
       1,
-      EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
+      dataEndColumn
     );
     const rowData = fullRowRange.getValues()[0];
 
@@ -225,11 +226,12 @@ export class DataEntryService {
           throw new Error("Sheet not found");
         }
 
+        const dataEndColumn = EntryClass._meta.columns.length; // Calculate from columns array
         const fullRowRange = sheet.getRange(
           rowNumber,
-          EntryClass._meta.dataStartColumn,
+          1, // dataStartColumn is always 1
           1,
-          EntryClass._meta.dataEndColumn - EntryClass._meta.dataStartColumn + 1
+          dataEndColumn
         );
         const rowData = fullRowRange.getValues()[0];
         entry.fromRow(rowData, rowNumber);
