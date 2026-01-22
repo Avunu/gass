@@ -228,23 +228,6 @@ export class SheetService {
     range.sort(sortOrders);
   }
 
-  static applyFilter(
-    sheetId: number,
-    criteria: { column: number; criteria: GoogleAppsScript.Spreadsheet.FilterCriteria },
-  ): void {
-    const sheet = this.getSheet(sheetId);
-    const lastRow = this.getLastRowNumber(sheet);
-    if (lastRow < 1) return;
-
-    const filter = sheet.getFilter();
-    if (filter) {
-      filter.setColumnFilterCriteria(criteria.column, criteria.criteria);
-    } else {
-      const range = sheet.getRange(1, 1, lastRow, sheet.getLastColumn());
-      range.createFilter().setColumnFilterCriteria(criteria.column, criteria.criteria);
-    }
-  }
-
   static clearFilterRow(sheetId: number, range: string): void {
     const sheet = this.getSheet(sheetId);
     sheet.getRange(range).clearContent();

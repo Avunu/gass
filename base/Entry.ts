@@ -597,31 +597,6 @@ export abstract class Entry {
   }
 
   /**
-   * Apply filter to the sheet
-   */
-  static applyFilter<T extends Entry>(
-    this: (new () => T) & { _meta: IEntryMeta },
-    criteria: GoogleAppsScript.Spreadsheet.FilterCriteria,
-    column: number,
-  ): void {
-    const sheet = SheetService.getSheet(this._meta.sheetId);
-    const dataEndColumn = this._meta.columns.length; // Calculate from columns array
-    const range = sheet.getRange(
-      1, // headerRow is always 1
-      1, // dataStartColumn is always 1
-      sheet.getLastRow() - 1, // Rows of data after header
-      dataEndColumn,
-    );
-
-    const filter = sheet.getFilter();
-    if (filter) {
-      filter.setColumnFilterCriteria(column, criteria);
-    } else {
-      range.createFilter().setColumnFilterCriteria(column, criteria);
-    }
-  }
-
-  /**
    * Sort the sheet based on provided sort orders
    */
   static sort<T extends Entry>(
