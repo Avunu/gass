@@ -307,6 +307,15 @@ export abstract class Entry {
     return allExist;
   }
 
+  /**
+   * Returns the entry's name for string conversion.
+   * This ensures Entry objects display meaningfully when implicitly
+   * converted to strings (e.g., in Array.join(), template interpolation).
+   */
+  toString(): string {
+    return (this as any).name ?? '';
+  }
+
   protected beforeSave(): void { }
   protected afterSave(): void { }
   protected beforeUpdate(): void { }
