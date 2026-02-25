@@ -20,10 +20,10 @@
   "version": "0.0.1",
   "devDependencies": {
     "@types/google-apps-script": "^2",
-    "@types/node": "^25.2.2",
-    "ajv": "^8.17.1",
+    "@types/node": "^25.3.0",
+    "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
-    "rolldown": "^1.0.0-rc.3",
+    "rolldown": "^1.0.0-rc.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0"
   }
