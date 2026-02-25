@@ -649,6 +649,10 @@ export class SheetService {
     if (a === b) return 0;
     if (a === null) return -1;
     if (b === null) return 1;
+    // Date === Date compares references, not values; use getTime() for correct equality
+    if (a instanceof Date && b instanceof Date) {
+      return a.getTime() - b.getTime();
+    }
     return a < b ? -1 : 1;
   }
 }
