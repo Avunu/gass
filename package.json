@@ -1,14 +1,16 @@
 {
-  "author": "Avunu LLC",
+  "name": "gass",
+  "version": "0.0.1",
+  "private": false,
   "description": "Google Sheets / Apps Script Framework",
   "license": "MIT",
-  "main": "index.js",
-  "name": "gass",
-  "private": false,
+  "author": "Avunu LLC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Avunu/gass.git"
   },
+  "type": "module",
+  "main": "index.js",
   "scripts": {
     "build": "rolldown --config rollup.config.js",
     "test": "npm run test:metadata && npm run test:required",
@@ -16,8 +18,6 @@
     "test:required": "tsx tests/json-schema-required-test.ts",
     "upgrade": "npx npm-check-updates -u && npm install"
   },
-  "type": "module",
-  "version": "0.0.1",
   "devDependencies": {
     "@types/google-apps-script": "^2",
     "@types/node": "^25.3.0",
