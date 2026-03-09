@@ -1,14 +1,14 @@
 import {
+  ChoiceFormField,
+  DateTimeFormField,
   FormConfiguration,
-  FormField,
   FormCreationResult,
+  FormField,
   FormResponse,
   FormSharingOptions,
   FormStatistics,
-  TextFormField,
-  ChoiceFormField,
   LinearScaleFormField,
-  DateTimeFormField,
+  TextFormField,
 } from "../types/formService";
 
 /**

@@ -1,10 +1,10 @@
 import * as SheetService from "../services/SheetService";
+import * as MetadataLoader from "./MetadataLoader";
+import { createLinkArrayProxy, createLinkProxy, getLinkMetadata, IS_LINK_PROXY } from "./Link";
 import type { FilterCriteria, SheetValue } from "../services/SheetService";
 import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
-import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
-import * as MetadataLoader from "./MetadataLoader";
 import type { IEntryMeta } from "./MetadataLoader";
 import { ValidateFunction } from "ajv";
 

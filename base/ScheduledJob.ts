@@ -1,4 +1,4 @@
-import { JobFrequency, ScheduledJob, EntryWithJobs } from "../types/jobs";
+import { EntryWithJobs, JobFrequency, ScheduledJob } from "../types/jobs";
 import * as EntryRegistry from "./EntryRegistry";
 
 let jobs: Map<string, ScheduledJob> = new Map();
