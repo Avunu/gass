@@ -65,6 +65,7 @@ All entry types must use JSON Schema-based metadata with field validation rules.
 Create a `.meta.json` file with your metadata and validation rules:
 
 **MyEntity.meta.json:**
+
 ```json
 {
   "$schema": "../types/entry-meta.schema.json",
@@ -100,6 +101,7 @@ Create a `.meta.json` file with your metadata and validation rules:
 ```
 
 **MyEntity.ts:**
+
 ```typescript
 import { Entry, ValidationResult } from "./lib/base/Entry";
 import metadata from "./MyEntity.meta.json";
@@ -228,7 +230,8 @@ await MyEntity.batchSave(entities);
 
 ## Metadata-Driven Data Entry Forms
 
-GASS provides automatic generation of data entry dialogs based on your Entry metadata. These dialogs use Material Design Web Components for a modern, native-looking interface.
+GASS provides automatic generation of data entry dialogs based on your Entry metadata. These dialogs use
+Material Design Web Components for a modern, native-looking interface.
 
 ### Setting Up Data Entry Menus
 
@@ -258,6 +261,7 @@ The Data Entry menu will automatically appear with two options:
 2. **Edit Entry**: Opens a form pre-filled with data from the currently selected row
 
 The form automatically generates fields based on your Entry metadata:
+
 - Text fields for string properties
 - Number fields for numeric properties
 - Checkboxes for boolean properties
@@ -268,6 +272,7 @@ All fields are validated using your Entry's `validate()` method before saving.
 ### Field Type Detection
 
 The DataEntryService automatically detects appropriate field types based on:
+
 - Column names (e.g., "date", "amount", "isActive")
 - Data types (boolean, number, string)
 - Property values
@@ -275,6 +280,7 @@ The DataEntryService automatically detects appropriate field types based on:
 ### Material Design Components
 
 The dialog includes the following Material Design Web Components loaded via CDN:
+
 - `md-filled-text-field` for text inputs
 - `md-checkbox` for boolean values
 - `md-filled-button` and `md-text-button` for actions
@@ -284,6 +290,7 @@ All components follow Material Design 3 guidelines with the Roboto font family.
 ### Customization
 
 You can customize the dialog by:
+
 1. Modifying the `templates/DataEntryDialog.html` template
 2. Extending the `DataEntryService` class
 3. Overriding field type detection logic
@@ -330,6 +337,7 @@ function onOpen() {
 ```
 
 When a user selects "Add Entry" from the Data Entry menu, they'll see a dialog with:
+
 - Text fields for id, name, email, and phone
 - A checkbox for isActive
 - A date field for joinDate

@@ -2,7 +2,9 @@
 
 ## Overview
 
-The linked fields feature allows Entry fields to behave as both strings (for storage in Google Sheets) and objects/arrays (for runtime access). This provides a seamless way to work with relationships between different Entry types.
+The linked fields feature allows Entry fields to behave as both strings (for storage in Google Sheets) and
+objects/arrays (for runtime access). This provides a seamless way to work with relationships between different
+Entry types.
 
 ## Basic Usage
 
@@ -19,14 +21,14 @@ export class Assignment extends Entry {
   static {
     this.loadMetadata(metadata);
   }
-  
+
   @link(Responsibility)
   public responsibility: Link<Responsibility> = "" as Link<Responsibility>;
-  
+
   protected override async beforeSave(): Promise<void> {
     // Fetch linked objects before using them
     await this.getLinkedObjects();
-    
+
     // Now you can use responsibility as both string and object!
     console.log(this.responsibility); // Prints: "Setup Team"
     console.log(this.responsibility.description); // Prints: "Prepare the venue"
@@ -47,24 +49,24 @@ export class Assignment extends Entry {
   static {
     this.loadMetadata(metadata);
   }
-  
+
   @linkArray(Participant)
   public assignees: LinkArray<Participant> = "" as LinkArray<Participant>;
-  
+
   protected override async beforeSave(): Promise<void> {
     await this.getLinkedObjects();
-    
+
     // Use as string
     console.log(this.assignees); // "John Doe, Jane Smith"
-    
+
     // Array access
     console.log(this.assignees[0].name); // "John Doe"
     console.log(this.assignees.length); // 2
-    
+
     // Array methods
-    const emails = this.assignees.map(p => p.email);
+    const emails = this.assignees.map((p) => p.email);
     console.log(emails); // ["john@example.com", "jane@example.com"]
-    
+
     // Array iteration
     for (const participant of this.assignees) {
       console.log(participant.name);
@@ -113,12 +115,14 @@ protected override async beforeSave(): Promise<void> {
 ### Proxy Capabilities
 
 #### Single Links (Link<T>)
+
 - ✅ Use as string: `console.log(link)` → `"Value"`
 - ✅ Access properties: `link.propertyName`
 - ✅ Call methods: `link.methodName()`
 - ✅ String operations: `link.length`, `link[0]` (character access)
 
 #### Array Links (LinkArray<T>)
+
 - ✅ Use as string: `console.log(linkArray)` → `"Val1, Val2"`
 - ✅ Array access: `linkArray[0]`
 - ✅ Array methods: `map`, `filter`, `forEach`, `find`, `some`, `every`, `reduce`, `slice`, `includes`
@@ -141,18 +145,18 @@ export class Assignment extends Entry {
   static {
     this.loadMetadata(metadata);
   }
-  
+
   public eventDate: Date = new Date();
-  
+
   @link(Responsibility)
   public responsibility: Link<Responsibility> = "" as Link<Responsibility>;
-  
+
   @linkArray(Participant)
   public assignees: LinkArray<Participant> = "" as LinkArray<Participant>;
-  
+
   public participantsEmail?: string;
   public participantsHousehold?: string;
-  
+
   protected override async beforeSave(): Promise<void> {
     // Clear fields if assignees is empty
     if (!this.assignees || this.assignees.toString().trim() === "") {
@@ -169,15 +173,13 @@ export class Assignment extends Entry {
 
     // Compute fields using linked objects
     this.participantsEmail = this.assignees
-      .map(p => p.email)
+      .map((p) => p.email)
       .filter(Boolean)
       .join(", ");
-      
-    this.participantsHousehold = [...new Set(
-      this.assignees
-        .map(p => p.household)
-        .filter(Boolean)
-    )].join(", ");
+
+    this.participantsHousehold = [...new Set(this.assignees.map((p) => p.household).filter(Boolean))].join(
+      ", ",
+    );
   }
 }
 ```
@@ -198,6 +200,7 @@ if (value?.[IS_LINK_PROXY]) {
 ```
 
 This is used internally for:
+
 - Detecting already-loaded proxies in `getLinkedObjects()`
 - Converting proxies to strings in `toRow()`
 

@@ -1,9 +1,11 @@
-import { FilterCriteria, SheetService, SheetValue } from "../services/SheetService";
+import * as SheetService from "../services/SheetService";
+import type { FilterCriteria, SheetValue } from "../services/SheetService";
 import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
 import { getLinkMetadata, createLinkProxy, createLinkArrayProxy, IS_LINK_PROXY } from "./Link";
-import { MetadataLoader, IEntryMeta } from "./MetadataLoader";
+import * as MetadataLoader from "./MetadataLoader";
+import type { IEntryMeta } from "./MetadataLoader";
 import { ValidateFunction } from "ajv";
 
 // Re-export IEntryMeta for convenience
@@ -19,7 +21,7 @@ export abstract class Entry {
   protected static _metadata: IEntryMeta;
   protected static _dataValidator: ValidateFunction | null = null;
   protected static _instances: Map<string, Entry> = new Map();
-  
+
   // Derived _meta property for compatibility with existing code
   public static get _meta(): IEntryMeta {
     if (!this._metadata) {
@@ -41,8 +43,6 @@ export abstract class Entry {
   // Add index signature to allow string indexing on derived classes
   [key: string]: SheetValue | unknown;
 
-  public constructor() { }
-
   // Update createInstance to ensure it's called only on concrete classes
   protected static createInstance<T extends Entry>(this: new () => T): T {
     return new this();
@@ -56,13 +56,15 @@ export abstract class Entry {
   protected static loadMetadata(metadata: any): void {
     // Validate and load the metadata
     this._metadata = MetadataLoader.loadFromObject(metadata);
-    
+
     // Create data validator from field definitions
     // All entries MUST define fields in their metadata
     if (!this._metadata.fields || Object.keys(this._metadata.fields).length === 0) {
-      throw new Error(`Entry class ${this.name} metadata must define "fields" with JSON Schema validation rules`);
+      throw new Error(
+        `Entry class ${this.name} metadata must define "fields" with JSON Schema validation rules`,
+      );
     }
-    
+
     this._dataValidator = MetadataLoader.createDataValidator(this._metadata);
 
     // Note: Link decorator validation is deferred until first use
@@ -84,25 +86,25 @@ export abstract class Entry {
       const relationship = relationships.get(link.fieldName);
       if (!relationship) {
         Logger.log(
-          `Warning: Field "${link.fieldName}" in ${this.name} has @link decorator but no JSON-LD metadata (@type/@id)`
+          `Warning: Field "${link.fieldName}" in ${this.name} has @link decorator but no JSON-LD metadata (@type/@id)`,
         );
       } else if (link.isArray && relationship.type !== "LinkArray") {
         Logger.log(
-          `Warning: Field "${link.fieldName}" in ${this.name} uses @linkArray but JSON-LD @type is "${relationship.type}"`
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @linkArray but JSON-LD @type is "${relationship.type}"`,
         );
       } else if (!link.isArray && relationship.type !== "Link") {
         Logger.log(
-          `Warning: Field "${link.fieldName}" in ${this.name} uses @link but JSON-LD @type is "${relationship.type}"`
+          `Warning: Field "${link.fieldName}" in ${this.name} uses @link but JSON-LD @type is "${relationship.type}"`,
         );
       }
     }
 
     // Check that each JSON-LD relationship has a decorator
     for (const [fieldName, _relationship] of relationships) {
-      const hasDecorator = linkMetadata.some(link => link.fieldName === fieldName);
+      const hasDecorator = linkMetadata.some((link) => link.fieldName === fieldName);
       if (!hasDecorator) {
         Logger.log(
-          `Warning: Field "${fieldName}" in ${this.name} has JSON-LD relationship metadata but no @link/@linkArray decorator`
+          `Warning: Field "${fieldName}" in ${this.name} has JSON-LD relationship metadata but no @link/@linkArray decorator`,
         );
       }
     }
@@ -119,7 +121,7 @@ export abstract class Entry {
     if (!this._metadata?.fields || this._dataValidator === null) {
       throw new Error(`Entry class ${this.name} must have JSON Schema fields defined in metadata`);
     }
-    
+
     return MetadataLoader.validateData(data, this._metadata);
   }
 
@@ -142,9 +144,9 @@ export abstract class Entry {
     const primarySort = this._meta.defaultSort?.[0];
     const sortInfo = primarySort
       ? {
-        columnIndex: this._meta.columns.indexOf(primarySort.column),
-        ascending: primarySort.ascending,
-      }
+          columnIndex: this._meta.columns.indexOf(primarySort.column),
+          ascending: primarySort.ascending,
+        }
       : undefined;
 
     const rows = await SheetService.getFilteredRows(
@@ -238,14 +240,18 @@ export abstract class Entry {
 
       try {
         // Resolve the target type (handle both lazy and direct)
-        const EntryType = typeof link.targetType === 'function' && link.targetType.prototype === undefined
-          ? (link.targetType as () => new () => Entry)()
-          : link.targetType as new () => Entry;
+        const EntryType =
+          typeof link.targetType === "function" && link.targetType.prototype === undefined
+            ? (link.targetType as () => new () => Entry)()
+            : (link.targetType as new () => Entry);
 
         if (link.isArray) {
           // Handle comma-separated array links
           const separator = link.separator || ",";
-          const names = String(linkValue).split(separator).map(name => name.trim()).filter(Boolean);
+          const names = String(linkValue)
+            .split(separator)
+            .map((name) => name.trim())
+            .filter(Boolean);
           const linkedObjects: Entry[] = [];
 
           for (const name of names) {
@@ -267,7 +273,7 @@ export abstract class Entry {
             link.fieldName,
             String(linkValue),
             linkedObjects,
-            separator
+            separator,
           );
 
           (this as any)[link.fieldName] = proxy;
@@ -277,29 +283,21 @@ export abstract class Entry {
           const filterCriteria: FilterCriteria = {
             [targetField]: linkValue,
           };
-          
+
           const results = await (EntryType as any).get(filterCriteria);
 
           const linkedObject = results && results.length > 0 ? results[0] : null;
-          
+
           if (!linkedObject) {
             allExist = false;
           }
 
-          const proxy = createLinkProxy(
-            this,
-            link.fieldName,
-            String(linkValue),
-            linkedObject
-          );
+          const proxy = createLinkProxy(this, link.fieldName, String(linkValue), linkedObject);
 
           (this as any)[link.fieldName] = proxy;
         }
       } catch (error) {
-        console.error(
-          `Error fetching linked object for ${link.fieldName}:`,
-          error
-        );
+        console.error(`Error fetching linked object for ${link.fieldName}:`, error);
         allExist = false;
       }
     }
@@ -313,15 +311,15 @@ export abstract class Entry {
    * converted to strings (e.g., in Array.join(), template interpolation).
    */
   toString(): string {
-    return (this as any).name ?? '';
+    return (this as any).name ?? "";
   }
 
-  protected beforeSave(): void { }
-  protected afterSave(): void { }
-  protected beforeUpdate(): void { }
-  protected afterUpdate(): void { }
-  protected beforeDelete(): void { }
-  protected afterDelete(): void { }
+  protected beforeSave(): void {}
+  protected afterSave(): void {}
+  protected beforeUpdate(): void {}
+  protected afterUpdate(): void {}
+  protected beforeDelete(): void {}
+  protected afterDelete(): void {}
 
   public markDirty(): void {
     this._isDirty = true;
@@ -402,15 +400,15 @@ export abstract class Entry {
         return null;
       }
       const value = this[col];
-      
+
       // Convert proxy back to string value for storage
-      if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
         // Check if it's a link proxy using the symbol
         if ((value as any)[IS_LINK_PROXY]) {
           return value.toString();
         }
       }
-      
+
       // Convert undefined to null for sheet compatibility
       return value === undefined ? null : (value as SheetValue);
     });
@@ -428,18 +426,18 @@ export abstract class Entry {
     // Map data positionally
     meta.columns.forEach((col, index) => {
       let value = rowData[index];
-      
+
       // Convert empty strings to null for optional fields (those that accept null)
       if (value === "" && EntryClass._metadata?.fields?.[col]) {
         const fieldSchema = EntryClass._metadata.fields[col];
         const fieldType = Array.isArray(fieldSchema.type) ? fieldSchema.type : [fieldSchema.type];
-        
+
         // If the field type includes "null", convert empty string to null
         if (fieldType.includes("null")) {
           value = null;
         }
       }
-      
+
       this[col] = value;
     });
 
@@ -504,7 +502,7 @@ export abstract class Entry {
       sort(sortOrders: { column: number; ascending: boolean }[]): void;
     },
     data: Array<{ [key: string]: SheetValue }> | T[],
-    options: { prepend?: boolean } = {}
+    options: { prepend?: boolean } = {},
   ): Promise<T[]> {
     if (data.length === 0) return [];
 
@@ -516,7 +514,7 @@ export abstract class Entry {
       entries = data as T[];
 
       // Ensure all entries are marked as new and dirty
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         entry._isNew = true;
         entry._isDirty = true;
       });
@@ -546,14 +544,14 @@ export abstract class Entry {
     // Validate all entries first (both schema and custom validation)
     const validationErrors: string[] = [];
     const EntryClass = this as any;
-    
+
     for (let i = 0; i < entries.length; i++) {
       // JSON Schema validation first
       const schemaValidation = EntryClass.validateWithSchema(entries[i]);
       if (!schemaValidation.isValid) {
         validationErrors.push(`Entry ${i + 1} (schema): ${schemaValidation.errors.join(", ")}`);
       }
-      
+
       // Custom validation
       const validation = entries[i].validate();
       if (!validation.isValid) {
@@ -614,12 +612,12 @@ export abstract class Entry {
   ): void {
     const sheet = SheetService.getSheet(this._meta.sheetId);
     const lastRow = sheet.getLastRow();
-    
+
     // Skip sorting if there are no data rows (only header row exists)
     if (lastRow <= 1) {
       return;
     }
-    
+
     const numRows = lastRow - 1; // headerRow is always 1
     const dataEndColumn = this._meta.columns.length; // Calculate from columns array
 

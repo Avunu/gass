@@ -39,6 +39,10 @@ export class CalendarService {
     return combined;
   }
 
+  private static formatDateTime(date: Date): string {
+    return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ssXXX");
+  }
+
   async createEvent(options: {
     title: string;
     description: string;
@@ -68,7 +72,7 @@ export class CalendarService {
         options.location,
         options.guests,
         options.recurrenceRules,
-        options.sendInvites ?? true
+        options.sendInvites ?? true,
       );
     }
 
@@ -104,47 +108,44 @@ export class CalendarService {
     location?: string,
     guests?: string[],
     recurrenceRules?: string[],
-    sendInvites: boolean = true
+    sendInvites: boolean = true,
   ): string {
-    // Format datetime for Google Calendar API
-    const formatDateTime = (date: Date): string => {
-      return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ssXXX");
-    };
-
     // Create event using Calendar Advanced Service
     const event: GoogleAppsScript.Calendar.Schema.Event = {
       summary: title,
       description: description,
       location: location,
       start: {
-        dateTime: formatDateTime(startDateTime),
+        dateTime: CalendarService.formatDateTime(startDateTime),
         timeZone: Session.getScriptTimeZone(),
       },
       end: {
-        dateTime: formatDateTime(endDateTime),
+        dateTime: CalendarService.formatDateTime(endDateTime),
         timeZone: Session.getScriptTimeZone(),
       },
       recurrence: recurrenceRules,
-      attendees: guests?.map(email => ({ email })),
+      attendees: guests?.map((email) => ({ email })),
       reminders: {
         useDefault: false,
         overrides: [
-          { method: 'email', minutes: 14400 }, // 10 days before
+          { method: "email", minutes: 14400 }, // 10 days before
         ],
       },
       guestsCanModify: true,
       guestsCanInviteOthers: true,
       guestsCanSeeOtherGuests: true,
-      visibility: 'default',
+      visibility: "default",
     };
 
     try {
       if (!Calendar || !Calendar.Events) {
-        throw new Error("Calendar Advanced Service is not enabled. Please enable it in the Apps Script project settings.");
+        throw new Error(
+          "Calendar Advanced Service is not enabled. Please enable it in the Apps Script project settings.",
+        );
       }
 
       const createdEvent = Calendar.Events.insert(event, this.calendarId, {
-        sendUpdates: sendInvites ? 'all' : 'none',
+        sendUpdates: sendInvites ? "all" : "none",
       });
 
       if (!createdEvent || !createdEvent.id) {
@@ -198,7 +199,9 @@ export class CalendarService {
    * Gets all instances of a recurring event series
    * Returns array of objects with eventId and start date for each instance
    */
-  async getEventInstances(recurringEventId: string): Promise<Array<{ eventId: string; start: Date; end: Date }>> {
+  async getEventInstances(
+    recurringEventId: string,
+  ): Promise<Array<{ eventId: string; start: Date; end: Date }>> {
     try {
       if (!Calendar || !Calendar.Events) {
         throw new Error("Calendar Advanced Service is not enabled.");
@@ -216,16 +219,16 @@ export class CalendarService {
       }
 
       const result: Array<{ eventId: string; start: Date; end: Date }> = [];
-      
+
       for (const instance of instances.items) {
         if (instance.id && instance.start && instance.end) {
-          const startDate = instance.start.dateTime 
+          const startDate = instance.start.dateTime
             ? new Date(instance.start.dateTime)
             : new Date(instance.start.date!);
           const endDate = instance.end.dateTime
             ? new Date(instance.end.dateTime)
             : new Date(instance.end.date!);
-            
+
           result.push({
             eventId: instance.id,
             start: startDate,

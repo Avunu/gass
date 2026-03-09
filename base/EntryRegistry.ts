@@ -1,8 +1,8 @@
 import { Entry, IEntryMeta } from "./Entry";
-import { FilterCriteria, SheetValue } from "../services/SheetService";
-import { SchedulerService } from "./ScheduledJob";
+import type { FilterCriteria, SheetValue } from "../services/SheetService";
+import * as SchedulerService from "./ScheduledJob";
 import { ScheduledJob } from "../types/jobs";
-import { DataEntryService } from "../services/DataEntryService";
+import * as DataEntryService from "../services/DataEntryService";
 
 export interface MenuItem {
   label: string;
@@ -31,266 +31,252 @@ type EntryConstructor = {
   batchInsert(dataObjects: Array<{ [key: string]: SheetValue }>): Promise<Entry[]>;
 };
 
-export class EntryRegistry {
-  private static entryTypes: Map<number, EntryConstructor> = new Map();
-  private static initialized = false;
+let entryTypes: Map<number, EntryConstructor> = new Map();
+let initialized = false;
 
-  /**
-   * Initialize the registry with provided entry types
-   */
-  static init(entries: EntryConstructor[]): void {
-    if (this.initialized) return;
+/**
+ * Initialize the registry with provided entry types
+ */
+export function init(entries: EntryConstructor[]): void {
+  if (initialized) return;
 
-    // Register all provided entry types
-    entries.forEach((entryType) => {
-      this.entryTypes.set(entryType._meta.sheetId, entryType);
-      // Also register with DataEntryService
-      DataEntryService.registerEntryType(entryType.name, entryType);
-    });
+  // Register all provided entry types
+  entries.forEach((entryType) => {
+    entryTypes.set(entryType._meta.sheetId, entryType);
+    // Also register with DataEntryService
+    DataEntryService.registerEntryType(entryType.name, entryType);
+  });
 
-    this.initialized = true;
+  initialized = true;
+}
+
+/**
+ * Reset the registry (useful for testing or re-initialization)
+ */
+export function reset(): void {
+  entryTypes.clear();
+  initialized = false;
+}
+
+export function ensureInitialized(): void {
+  if (!initialized) {
+    throw new Error("EntryRegistry must be initialized with init(entries) before use");
   }
+}
 
-  /**
-   * Reset the registry (useful for testing or re-initialization)
-   */
-  static reset(): void {
-    this.entryTypes.clear();
-    this.initialized = false;
-  }
+/**
+ * Get an entry type by its sheet ID
+ */
+export function getEntryTypeBySheetId(sheetId: number): EntryConstructor | undefined {
+  ensureInitialized();
+  return entryTypes.get(sheetId);
+}
 
-  static ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error("EntryRegistry must be initialized with init(entries) before use");
-    }
-  }
+/**
+ * Get all registered entry types
+ */
+export function getAllEntryTypes(): EntryConstructor[] {
+  ensureInitialized();
+  return Array.from(entryTypes.values());
+}
 
-  /**
-   * Get an entry type by its sheet ID
-   */
-  static getEntryTypeBySheetId(sheetId: number): EntryConstructor | undefined {
-    this.ensureInitialized();
-    return this.entryTypes.get(sheetId);
-  }
+/**
+ * Handle an edit event by updating the appropriate entry
+ */
+export async function handleEdit(e: GoogleAppsScript.Events.SheetsOnEdit): Promise<void> {
+  ensureInitialized();
 
-  /**
-   * Get all registered entry types
-   */
-  static getAllEntryTypes(): EntryConstructor[] {
-    this.ensureInitialized();
-    return Array.from(this.entryTypes.values());
-  }
+  const { range, oldValue, value } = e;
+  const sheet = range.getSheet();
+  const sheetId = sheet.getSheetId();
+  const row = range.getRow();
+  // never act on the first row changes
+  if (row === 1) return;
 
-  /**
-   * Handle an edit event by updating the appropriate entry
-   */
-  static async handleEdit(e: GoogleAppsScript.Events.SheetsOnEdit): Promise<void> {
-    this.ensureInitialized();
+  const EntryType = getEntryTypeBySheetId(sheetId);
+  if (!EntryType) return;
 
-    const { range, oldValue, value } = e;
-    const sheet = range.getSheet();
-    const sheetId = sheet.getSheetId();
-    const row = range.getRow();
-    // never act on the first row changes
-    if (row === 1) return;
+  // Skip if the value didn't actually change
+  if (oldValue === value) return;
 
-    const EntryType = this.getEntryTypeBySheetId(sheetId);
-    if (!EntryType) return;
+  try {
+    // Get the full row data instead of just the edited cell
+    const dataEndColumn = EntryType._meta.columns.length; // Calculate from columns array
+    const fullRowRange = sheet.getRange(
+      row,
+      1, // dataStartColumn is always 1
+      1,
+      dataEndColumn,
+    );
+    const rowData = fullRowRange.getValues()[0];
 
-    // Skip if the value didn't actually change
-    if (oldValue === value) return;
+    // If all cells are empty, and this was a deletion, we can skip processing
+    if (rowData.every((cell) => cell === "") && !value) return;
 
-    try {
-      // Get the full row data instead of just the edited cell
-      const dataEndColumn = EntryType._meta.columns.length; // Calculate from columns array
-      const fullRowRange = sheet.getRange(
-        row,
-        1, // dataStartColumn is always 1
-        1,
-        dataEndColumn,
-      );
-      const rowData = fullRowRange.getValues()[0];
+    // Process any row through entry validation
+    const entry = new EntryType();
+    entry.fromRow(rowData, row);
 
-      // If all cells are empty, and this was a deletion, we can skip processing
-      if (rowData.every((cell) => cell === "") && !value) return;
-
-      // Process any row through entry validation
-      const entry = new EntryType();
-      entry.fromRow(rowData, row);
-
-      // Only save if the entry is valid
-      const validation = entry.validate();
-      if (validation.isValid) {
-        entry.markDirty();
-        await entry.save();
-        SpreadsheetApp.getActiveSpreadsheet().toast("Changes saved successfully", "Success", 3);
-      } else {
-        const errorMessage = validation.errors.join(", ");
-        SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Validation Error", -1);
-        Logger.log(`Validation failed for row ${row}: ${errorMessage}`);
-      }
-    } catch (error) {
-      const errorMessage = `Error in row ${row}: ${error}`;
-      SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Error", -1);
-      Logger.log(`Error handling edit in sheet ${sheetId}, row ${row}: ${error}`);
-    }
-  }
-
-  /**
-   * Get menu items from all registered entry types
-   */
-  static getMenuItems(): { [key: string]: MenuItem[] } {
-    const menuItems: { [key: string]: MenuItem[] } = {};
-
-    this.getAllEntryTypes().forEach((EntryType) => {
-      if (EntryType.getMenuItems) {
-        menuItems[EntryType.name] = EntryType.getMenuItems();
-      }
-    });
-
-    return menuItems;
-  }
-
-  /**
-   * Register all menu functions globally
-   */
-  static registerMenuFunctions(global: GlobalMenuFunctions): void {
-    this.getAllEntryTypes().forEach((EntryType) => {
-      if (EntryType.getMenuItems) {
-        EntryType.getMenuItems().forEach(({ functionName, handler }) => {
-          // Add the function to the global scope
-          global[functionName] = () => {
-            // Wrap in promise and handle errors
-            return handler().catch((error) => {
-              SpreadsheetApp.getActiveSpreadsheet().toast(`Error: ${error}`, "Menu Action Failed", -1);
-              throw error;
-            });
-          };
-        });
-      }
-    });
-  }
-
-  /**
-   * Sync all entries across all types
-   */
-  static async syncAll(): Promise<void> {
-    for (const EntryType of this.getAllEntryTypes()) {
-      const entries = await EntryType.getAll();
-      // Use batch save instead of individual saves
-      await EntryType.batchSave(entries);
-    }
-  }
-
-  static async collectAndRegisterJobs(): Promise<void> {
-    const entryTypes = EntryRegistry.getAllEntryTypes();
-
-    for (const EntryType of entryTypes) {
-      if ("getScheduledJobs" in EntryType && typeof EntryType.getScheduledJobs === "function") {
-        const jobs = await EntryType.getScheduledJobs();
-        if (jobs) {
-          jobs.forEach((job: ScheduledJob) => SchedulerService.registerJob(job));
-        }
-      }
-    }
-  }
-
-  /**
-   * Create "Data Entry" menu with Add/Edit Entry options for the active sheet
-   */
-  static createDataEntryMenu(): void {
-    this.ensureInitialized();
-    
-    const ui = SpreadsheetApp.getUi();
-    const menu = ui.createMenu("Data Entry");
-    
-    // Get the active sheet to determine which entry type to use
-    const activeSheet = SpreadsheetApp.getActiveSheet();
-    const sheetId = activeSheet.getSheetId();
-    const EntryType = this.getEntryTypeBySheetId(sheetId);
-    
-    if (EntryType) {
-      // Create sidebar menu item
-      menu.addItem("Show Sidebar", "showDataEntrySidebar");
-      menu.addSeparator();
-      
-      // Create Add Entry menu item
-      menu.addItem("Add Entry", "showAddEntryDialog_" + EntryType.name);
-      
-      // Create Edit Entry menu item
-      menu.addItem("Edit Entry", "showEditEntryDialog_" + EntryType.name);
+    // Only save if the entry is valid
+    const validation = entry.validate();
+    if (validation.isValid) {
+      entry.markDirty();
+      await entry.save();
+      SpreadsheetApp.getActiveSpreadsheet().toast("Changes saved successfully", "Success", 3);
     } else {
-      menu.addItem("No entry type for this sheet", "");
+      const errorMessage = validation.errors.join(", ");
+      SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Validation Error", -1);
+      Logger.log(`Validation failed for row ${row}: ${errorMessage}`);
     }
-    
-    menu.addToUi();
+  } catch (error) {
+    const errorMessage = `Error in row ${row}: ${error}`;
+    SpreadsheetApp.getActiveSpreadsheet().toast(errorMessage, "Error", -1);
+    Logger.log(`Error handling edit in sheet ${sheetId}, row ${row}: ${error}`);
+  }
+}
+
+/**
+ * Get menu items from all registered entry types
+ */
+export function getMenuItems(): { [key: string]: MenuItem[] } {
+  const menuItems: { [key: string]: MenuItem[] } = {};
+
+  getAllEntryTypes().forEach((EntryType) => {
+    if (EntryType.getMenuItems) {
+      menuItems[EntryType.name] = EntryType.getMenuItems();
+    }
+  });
+
+  return menuItems;
+}
+
+/**
+ * Register all menu functions globally
+ */
+export function registerMenuFunctions(global: GlobalMenuFunctions): void {
+  getAllEntryTypes().forEach((EntryType) => {
+    if (EntryType.getMenuItems) {
+      EntryType.getMenuItems().forEach(({ functionName, handler }) => {
+        // Add the function to the global scope
+        global[functionName] = () => {
+          // Wrap in promise and handle errors
+          return handler().catch((error) => {
+            SpreadsheetApp.getActiveSpreadsheet().toast(`Error: ${error}`, "Menu Action Failed", -1);
+            throw error;
+          });
+        };
+      });
+    }
+  });
+}
+
+/**
+ * Sync all entries across all types
+ */
+export async function syncAll(): Promise<void> {
+  for (const EntryType of getAllEntryTypes()) {
+    const entries = await EntryType.getAll();
+    // Use batch save instead of individual saves
+    await EntryType.batchSave(entries);
+  }
+}
+
+export async function collectAndRegisterJobs(): Promise<void> {
+  const allEntryTypes = getAllEntryTypes();
+
+  for (const EntryType of allEntryTypes) {
+    if ("getScheduledJobs" in EntryType && typeof EntryType.getScheduledJobs === "function") {
+      const jobs = await EntryType.getScheduledJobs();
+      if (jobs) {
+        jobs.forEach((job: ScheduledJob) => SchedulerService.registerJob(job));
+      }
+    }
+  }
+}
+
+/**
+ * Create "Data Entry" menu with Add/Edit Entry options for the active sheet
+ */
+export function createDataEntryMenu(): void {
+  ensureInitialized();
+
+  const ui = SpreadsheetApp.getUi();
+  const menu = ui.createMenu("Data Entry");
+
+  // Get the active sheet to determine which entry type to use
+  const activeSheet = SpreadsheetApp.getActiveSheet();
+  const sheetId = activeSheet.getSheetId();
+  const EntryType = getEntryTypeBySheetId(sheetId);
+
+  if (EntryType) {
+    // Create sidebar menu item
+    menu.addItem("Show Sidebar", "showDataEntrySidebar");
+    menu.addSeparator();
+
+    // Create Add Entry menu item
+    menu.addItem("Add Entry", "showAddEntryDialog_" + EntryType.name);
+
+    // Create Edit Entry menu item
+    menu.addItem("Edit Entry", "showEditEntryDialog_" + EntryType.name);
+  } else {
+    menu.addItem("No entry type for this sheet", "");
   }
 
-  /**
-   * Register data entry menu functions globally
-   * Creates showAddEntryDialog and showEditEntryDialog functions for each entry type
-   */
-  static registerDataEntryMenuFunctions(global: GlobalMenuFunctions): void {
-    this.getAllEntryTypes().forEach((EntryType) => {
-      // Add Entry function
-      global[`showAddEntryDialog_${EntryType.name}`] = () => {
-        try {
-          DataEntryService.showAddEntryDialog(EntryType);
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            `Error: ${errorMsg}`,
-            "Add Entry Failed",
-            -1
-          );
-          throw error;
-        }
-      };
+  menu.addToUi();
+}
 
-      // Edit Entry function
-      global[`showEditEntryDialog_${EntryType.name}`] = () => {
-        try {
-          DataEntryService.showEditEntryDialog(EntryType);
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            `Error: ${errorMsg}`,
-            "Edit Entry Failed",
-            -1
-          );
-          throw error;
-        }
-      };
-    });
-
-    // Register the sidebar function globally
-    global.showDataEntrySidebar = () => {
+/**
+ * Register data entry menu functions globally
+ * Creates showAddEntryDialog and showEditEntryDialog functions for each entry type
+ */
+export function registerDataEntryMenuFunctions(global: GlobalMenuFunctions): void {
+  getAllEntryTypes().forEach((EntryType) => {
+    // Add Entry function
+    global[`showAddEntryDialog_${EntryType.name}`] = () => {
       try {
-        DataEntryService.showDataEntrySidebar();
+        DataEntryService.showAddEntryDialog(EntryType);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          `Error: ${errorMsg}`,
-          "Show Sidebar Failed",
-          -1
-        );
+        SpreadsheetApp.getActiveSpreadsheet().toast(`Error: ${errorMsg}`, "Add Entry Failed", -1);
         throw error;
       }
     };
 
-    // Register the sidebar form data loader globally
-    global.loadSidebarFormData = (entryTypeName: string, mode: 'new' | 'edit') => {
-      return DataEntryService.loadSidebarFormData(entryTypeName, mode);
+    // Edit Entry function
+    global[`showEditEntryDialog_${EntryType.name}`] = () => {
+      try {
+        DataEntryService.showEditEntryDialog(EntryType);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        SpreadsheetApp.getActiveSpreadsheet().toast(`Error: ${errorMsg}`, "Edit Entry Failed", -1);
+        throw error;
+      }
     };
+  });
 
-    // Register the save function globally so it can be called from the dialog
-    global.saveEntryFromDialog = (
-      entryTypeName: string,
-      entryData: { [key: string]: SheetValue },
-      isEdit: boolean,
-      rowNumber?: number
-    ) => {
-      return DataEntryService.saveEntryFromDialog(entryTypeName, entryData, isEdit, rowNumber);
-    };
-  }
+  // Register the sidebar function globally
+  global.showDataEntrySidebar = () => {
+    try {
+      DataEntryService.showDataEntrySidebar();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      SpreadsheetApp.getActiveSpreadsheet().toast(`Error: ${errorMsg}`, "Show Sidebar Failed", -1);
+      throw error;
+    }
+  };
+
+  // Register the sidebar form data loader globally
+  global.loadSidebarFormData = (entryTypeName: string, mode: "new" | "edit") => {
+    return DataEntryService.loadSidebarFormData(entryTypeName, mode);
+  };
+
+  // Register the save function globally so it can be called from the dialog
+  global.saveEntryFromDialog = (
+    entryTypeName: string,
+    entryData: { [key: string]: SheetValue },
+    isEdit: boolean,
+    rowNumber?: number,
+  ) => {
+    return DataEntryService.saveEntryFromDialog(entryTypeName, entryData, isEdit, rowNumber);
+  };
 }

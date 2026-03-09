@@ -2,15 +2,18 @@
 
 ## Overview
 
-This guide helps you migrate from older versions of GASS that used the traditional `IEntryMeta` approach to the current version that **requires** JSON Schema-based metadata.
+This guide helps you migrate from older versions of GASS that used the traditional `IEntryMeta` approach to
+the current version that **requires** JSON Schema-based metadata.
 
 ## Important: JSON Schema is Now Required
 
-**As of the current version, all Entry classes MUST use JSON Schema metadata with field definitions.** The traditional approach of directly assigning to `static override _meta` is no longer supported.
+**As of the current version, all Entry classes MUST use JSON Schema metadata with field definitions.** The
+traditional approach of directly assigning to `static override _meta` is no longer supported.
 
 ## Why JSON Schema?
 
 **Benefits of JSON Schema approach:**
+
 - ✅ Declarative validation without writing code
 - ✅ Industry-standard format with broad tooling support
 - ✅ Built-in format validators (email, date, URI, etc.)
@@ -59,33 +62,33 @@ export class User extends Entry {
 
   validate(): ValidationResult {
     const errors: string[] = [];
-    
+
     // Required fields
     if (!this.id) errors.push("ID is required");
     if (!this.name) errors.push("Name is required");
     if (!this.email) errors.push("Email is required");
     if (!this.status) errors.push("Status is required");
-    
+
     // Email format
     if (this.email && !this.email.includes("@")) {
       errors.push("Invalid email format");
     }
-    
+
     // Name length
     if (this.name && this.name.length > 100) {
       errors.push("Name too long (max 100 characters)");
     }
-    
+
     // Phone format
     if (this.phone && !/^\d{3}-\d{3}-\d{4}$/.test(this.phone)) {
       errors.push("Phone must be in format XXX-XXX-XXXX");
     }
-    
+
     // Status values
     if (this.status && !["active", "inactive", "pending"].includes(this.status)) {
       errors.push("Invalid status value");
     }
-    
+
     return { isValid: errors.length === 0, errors };
   }
 }
@@ -94,14 +97,13 @@ export class User extends Entry {
 #### After (Current Version - Required)
 
 **User.meta.json:**
+
 ```json
 {
   "$schema": "../types/entry-meta.schema.json",
   "sheetId": 123456789,
   "columns": ["id", "name", "email", "phone", "status", "createdAt"],
-  "defaultSort": [
-    { "column": "name", "ascending": true }
-  ],
+  "defaultSort": [{ "column": "name", "ascending": true }],
   "fields": {
     "id": {
       "type": "string",
@@ -142,6 +144,7 @@ export class User extends Entry {
 ```
 
 **User.ts:**
+
 ```typescript
 import { Entry, ValidationResult } from "./lib/base/Entry";
 import metadata from "./User.meta.json";
@@ -169,12 +172,12 @@ export class User extends Entry {
     // JSON Schema handles all the basic validation!
     // Only add custom business logic here
     const errors: string[] = [];
-    
+
     // Example: Custom business rule
     if (this.status === "active" && !this.createdAt) {
       errors.push("Active users must have a creation date");
     }
-    
+
     return { isValid: errors.length === 0, errors };
   }
 }
@@ -184,22 +187,23 @@ export class User extends Entry {
 
 Here's how common validation patterns map to JSON Schema:
 
-| Old Code | JSON Schema |
-|----------|-------------|
-| `if (!field)` | `"required": true` |
-| `if (field.length > 100)` | `"maxLength": 100` |
-| `if (field.length < 1)` | `"minLength": 1` |
-| `if (!field.includes("@"))` | `"format": "email"` |
-| `if (!/pattern/.test(field))` | `"pattern": "regex"` |
+| Old Code                          | JSON Schema          |
+| --------------------------------- | -------------------- |
+| `if (!field)`                     | `"required": true`   |
+| `if (field.length > 100)`         | `"maxLength": 100`   |
+| `if (field.length < 1)`           | `"minLength": 1`     |
+| `if (!field.includes("@"))`       | `"format": "email"`  |
+| `if (!/pattern/.test(field))`     | `"pattern": "regex"` |
 | `if (!["a","b"].includes(field))` | `"enum": ["a", "b"]` |
-| `if (field < 0)` | `"minimum": 0` |
-| `if (field > 100)` | `"maximum": 100` |
+| `if (field < 0)`                  | `"minimum": 0`       |
+| `if (field > 100)`                | `"maximum": 100`     |
 
 ### Step 4: Update Validation Logic
 
 **Key principle:** Move **data validation** to JSON Schema, keep **business logic** in `validate()`.
 
 #### Data Validation (→ JSON Schema)
+
 - Required fields
 - Data types
 - String lengths
@@ -209,6 +213,7 @@ Here's how common validation patterns map to JSON Schema:
 - Enum values
 
 #### Business Logic (→ validate() method)
+
 - Cross-field validation
 - Conditional requirements
 - External data checks
@@ -218,11 +223,13 @@ Here's how common validation patterns map to JSON Schema:
 ### Step 5: Test Your Migration
 
 1. **TypeScript Check:**
+
    ```bash
    npx tsc --noEmit
    ```
 
 2. **Run Tests:**
+
    ```bash
    npm test
    ```
@@ -303,7 +310,8 @@ Here's how common validation patterns map to JSON Schema:
 
 ### Issue: Schema validation is too strict
 
-**Solution:** Remember that JSON Schema validation runs FIRST. If you need looser validation, don't define that field in the schema or make it optional.
+**Solution:** Remember that JSON Schema validation runs FIRST. If you need looser validation, don't define
+that field in the schema or make it optional.
 
 ### Issue: Need conditional validation
 
@@ -312,13 +320,13 @@ Here's how common validation patterns map to JSON Schema:
 ```typescript
 validate(): ValidationResult {
   const errors: string[] = [];
-  
+
   // JSON Schema handles basic validation
   // Add conditional logic here
   if (this.type === "premium" && !this.billingInfo) {
     errors.push("Premium users must have billing info");
   }
-  
+
   return { isValid: errors.length === 0, errors };
 }
 ```

@@ -1,10 +1,10 @@
 /**
  * Simple test to verify JSON Schema metadata loading and validation
- * 
+ *
  * Run with: npx ts-node tests/metadata-test.ts
  */
 
-import { MetadataLoader } from "../base/MetadataLoader";
+import * as MetadataLoader from "../base/MetadataLoader";
 
 console.log("=== JSON Schema Metadata System Test ===\n");
 
@@ -182,15 +182,15 @@ try {
   };
 
   const loadedMeta = MetadataLoader.loadFromObject(metadata);
-  
+
   // Valid enum value
   const validData = { id: "1", status: "active" };
   const validResult = MetadataLoader.validateData(validData, loadedMeta);
-  
+
   // Invalid enum value
   const invalidData = { id: "1", status: "unknown" };
   const invalidResult = MetadataLoader.validateData(invalidData, loadedMeta);
-  
+
   if (validResult.isValid && !invalidResult.isValid) {
     console.log("✓ Enum validation working correctly");
     console.log(`  - Invalid value error: ${invalidResult.errors.join(", ")}`);

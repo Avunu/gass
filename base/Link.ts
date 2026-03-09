@@ -25,13 +25,13 @@ export const IS_LINK_PROXY = Symbol("isLinkProxy");
 // Decorator to mark a field as a link
 export function link<T extends Entry>(
   targetType: () => new () => T, // Changed to function
-  options?: { targetField?: string }
+  options?: { targetField?: string },
 ) {
   return function (target: any, propertyKey: string) {
     if (!target.constructor[LINK_METADATA]) {
       target.constructor[LINK_METADATA] = [];
     }
-    
+
     target.constructor[LINK_METADATA].push({
       targetType, // Store the function
       fieldName: propertyKey,
@@ -44,13 +44,13 @@ export function link<T extends Entry>(
 // Decorator to mark a field as an array link (comma-separated)
 export function linkArray<T extends Entry>(
   targetType: () => new () => T, // Changed to function
-  options?: { targetField?: string; separator?: string }
+  options?: { targetField?: string; separator?: string },
 ) {
   return function (target: any, propertyKey: string) {
     if (!target.constructor[LINK_METADATA]) {
       target.constructor[LINK_METADATA] = [];
     }
-    
+
     target.constructor[LINK_METADATA].push({
       targetType, // Store the function
       fieldName: propertyKey,
@@ -62,9 +62,7 @@ export function linkArray<T extends Entry>(
 }
 
 // Helper to get link metadata from a class
-export function getLinkMetadata<T extends Entry>(
-  entryClass: new () => T
-): LinkMetadata<Entry>[] {
+export function getLinkMetadata<T extends Entry>(entryClass: new () => T): LinkMetadata<Entry>[] {
   return (entryClass as any)[LINK_METADATA] || [];
 }
 
@@ -73,7 +71,7 @@ export function createLinkProxy<T extends Entry>(
   instance: Entry,
   fieldName: string,
   stringValue: string,
-  linkedObject: T | null
+  linkedObject: T | null,
 ): Link<T> {
   // Initialize cache if needed
   if (!(instance as any)[LINKED_CACHE]) {
@@ -81,13 +79,13 @@ export function createLinkProxy<T extends Entry>(
   }
 
   const cache = (instance as any)[LINKED_CACHE] as Map<string, Entry | null>;
-  
+
   // Store the linked object in cache
   cache.set(fieldName, linkedObject);
 
   // Use a plain object as the proxy target instead of String
   const target = Object.create(String.prototype);
-  
+
   // Create a proxy that intercepts property access
   const proxy = new Proxy(target, {
     get(_target, prop) {
@@ -95,31 +93,31 @@ export function createLinkProxy<T extends Entry>(
       if (prop === IS_LINK_PROXY) {
         return true;
       }
-      
+
       // Handle string methods and properties
-      if (prop === 'toString' || prop === 'valueOf') {
+      if (prop === "toString" || prop === "valueOf") {
         return () => stringValue;
       }
-      
+
       // Handle Symbol properties (for...of, etc)
-      if (typeof prop === 'symbol') {
+      if (typeof prop === "symbol") {
         return String.prototype[prop as any];
       }
 
       // Handle length property - return string length
-      if (prop === 'length') {
+      if (prop === "length") {
         return stringValue.length;
       }
 
       // If accessing a property on the linked object, prioritize it over string character access
       if (linkedObject && prop in linkedObject) {
         const value = (linkedObject as any)[prop];
-        
+
         // If the property is itself a link field, create a proxy for it
         const linkedMeta = getLinkMetadata(linkedObject.constructor as new () => Entry);
-        const isLinkField = linkedMeta.some(m => m.fieldName === prop);
-        
-        if (isLinkField && typeof value === 'string') {
+        const isLinkField = linkedMeta.some((m) => m.fieldName === prop);
+
+        if (isLinkField && typeof value === "string") {
           // Check if we already have the nested linked object cached
           if (cache.has(`${fieldName}.${String(prop)}`)) {
             const nestedLinked = cache.get(`${fieldName}.${String(prop)}`) ?? null;
@@ -128,23 +126,23 @@ export function createLinkProxy<T extends Entry>(
           // Return the string value for now; it will be loaded on first access
           return value;
         }
-        
+
         // If it's a method, bind it to the linked object
-        if (typeof value === 'function') {
+        if (typeof value === "function") {
           return value.bind(linkedObject);
         }
-        
+
         return value;
       }
 
       // Handle numeric indices for string character access (fallback after linked object check)
-      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
+      if (typeof prop === "string" && !isNaN(parseInt(prop))) {
         return stringValue[parseInt(prop)];
       }
 
       // Fall back to string prototype methods
       const stringMethod = (String.prototype as any)[prop];
-      if (typeof stringMethod === 'function') {
+      if (typeof stringMethod === "function") {
         return stringMethod.bind(stringValue);
       }
 
@@ -166,7 +164,7 @@ export function createLinkProxy<T extends Entry>(
     },
 
     getOwnPropertyDescriptor(_target, prop) {
-      if (prop === 'length') {
+      if (prop === "length") {
         return {
           enumerable: false,
           configurable: true,
@@ -174,7 +172,7 @@ export function createLinkProxy<T extends Entry>(
           value: stringValue.length,
         };
       }
-      
+
       if (linkedObject && prop in linkedObject) {
         return {
           enumerable: true,
@@ -182,7 +180,7 @@ export function createLinkProxy<T extends Entry>(
           value: (linkedObject as any)[prop],
         };
       }
-      
+
       return undefined;
     },
   });
@@ -196,7 +194,7 @@ export function createLinkArrayProxy<T extends Entry>(
   fieldName: string,
   stringValue: string,
   linkedObjects: T[],
-  separator: string = ","
+  separator: string = ",",
 ): LinkArray<T> {
   // Initialize cache if needed
   if (!(instance as any)[LINKED_CACHE]) {
@@ -204,12 +202,12 @@ export function createLinkArrayProxy<T extends Entry>(
   }
 
   const cache = (instance as any)[LINKED_CACHE] as Map<string, Entry[] | null>;
-  
+
   // Store the linked objects in cache
   cache.set(fieldName, linkedObjects);
 
   // Split string value using the separator to get individual values
-  const stringValues = stringValue.split(separator).map(s => s.trim());
+  const stringValues = stringValue.split(separator).map((s) => s.trim());
 
   // Use a plain object as the proxy target instead of String
   const target = Object.create(String.prototype);
@@ -221,14 +219,14 @@ export function createLinkArrayProxy<T extends Entry>(
       if (prop === IS_LINK_PROXY) {
         return true;
       }
-      
+
       // Handle string methods and properties
-      if (prop === 'toString' || prop === 'valueOf') {
+      if (prop === "toString" || prop === "valueOf") {
         return () => stringValue;
       }
-      
+
       // Handle Symbol properties
-      if (typeof prop === 'symbol') {
+      if (typeof prop === "symbol") {
         // Handle Symbol.iterator for for...of loops
         if (prop === Symbol.iterator) {
           return function* () {
@@ -241,25 +239,33 @@ export function createLinkArrayProxy<T extends Entry>(
       }
 
       // Handle array properties and methods
-      if (prop === 'length') {
+      if (prop === "length") {
         return linkedObjects.length;
       }
 
       // Handle numeric indices - return linked objects
-      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
+      if (typeof prop === "string" && !isNaN(parseInt(prop))) {
         const index = parseInt(prop);
         return linkedObjects[index];
       }
 
       // Handle array methods
-      if (prop === 'map' || prop === 'filter' || prop === 'forEach' || 
-          prop === 'find' || prop === 'some' || prop === 'every' ||
-          prop === 'reduce' || prop === 'slice' || prop === 'includes') {
+      if (
+        prop === "map" ||
+        prop === "filter" ||
+        prop === "forEach" ||
+        prop === "find" ||
+        prop === "some" ||
+        prop === "every" ||
+        prop === "reduce" ||
+        prop === "slice" ||
+        prop === "includes"
+      ) {
         return (linkedObjects as any)[prop].bind(linkedObjects);
       }
 
       // Handle join method to reconstruct string with separator
-      if (prop === 'join') {
+      if (prop === "join") {
         return (joiner?: string) => {
           const sep = joiner !== undefined ? joiner : separator;
           return stringValues.join(sep);
@@ -268,7 +274,7 @@ export function createLinkArrayProxy<T extends Entry>(
 
       // Fall back to string prototype methods
       const stringMethod = (String.prototype as any)[prop];
-      if (typeof stringMethod === 'function') {
+      if (typeof stringMethod === "function") {
         return stringMethod.bind(stringValue);
       }
 
@@ -277,30 +283,39 @@ export function createLinkArrayProxy<T extends Entry>(
 
     has(_target, prop) {
       // Check if numeric index is valid
-      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
+      if (typeof prop === "string" && !isNaN(parseInt(prop))) {
         const index = parseInt(prop);
         return index >= 0 && index < linkedObjects.length;
       }
-      
+
       // Check if it's an array method
-      if (prop === 'map' || prop === 'filter' || prop === 'forEach' || 
-          prop === 'find' || prop === 'some' || prop === 'every' ||
-          prop === 'reduce' || prop === 'slice' || prop === 'includes' || 
-          prop === 'join' || prop === 'length') {
+      if (
+        prop === "map" ||
+        prop === "filter" ||
+        prop === "forEach" ||
+        prop === "find" ||
+        prop === "some" ||
+        prop === "every" ||
+        prop === "reduce" ||
+        prop === "slice" ||
+        prop === "includes" ||
+        prop === "join" ||
+        prop === "length"
+      ) {
         return true;
       }
-      
+
       return prop in String.prototype;
     },
 
     ownKeys(_target) {
       // Include numeric indices
       const indices = linkedObjects.map((_, i) => String(i));
-      return [...indices, 'length'];
+      return [...indices, "length"];
     },
 
     getOwnPropertyDescriptor(_target, prop) {
-      if (typeof prop === 'string' && !isNaN(parseInt(prop))) {
+      if (typeof prop === "string" && !isNaN(parseInt(prop))) {
         const index = parseInt(prop);
         if (index >= 0 && index < linkedObjects.length) {
           return {
@@ -310,8 +325,8 @@ export function createLinkArrayProxy<T extends Entry>(
           };
         }
       }
-      
-      if (prop === 'length') {
+
+      if (prop === "length") {
         return {
           enumerable: false,
           configurable: true,
@@ -319,7 +334,7 @@ export function createLinkArrayProxy<T extends Entry>(
           value: linkedObjects.length,
         };
       }
-      
+
       return undefined;
     },
   });

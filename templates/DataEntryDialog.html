@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <base target="_top" />
@@ -19,59 +19,62 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
-      rel="stylesheet" />
-    <link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    />
+
     <style>
       body {
-        font-family: 'Roboto', sans-serif;
+        font-family: "Roboto", sans-serif;
         margin: 0;
         padding: 20px;
         background-color: #f5f5f5;
       }
-      
+
       .form-container {
         max-width: 600px;
         margin: 0 auto;
         background: white;
         padding: 24px;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
-      
+
       .form-title {
         font-size: 24px;
         font-weight: 500;
         margin-bottom: 24px;
         color: #1a1a1a;
       }
-      
+
       .form-field {
         margin-bottom: 20px;
       }
-      
+
       .form-field label {
         display: block;
         margin-bottom: 8px;
         font-weight: 500;
         color: #5f6368;
       }
-      
+
       md-filled-text-field {
         width: 100%;
       }
-      
+
       md-filled-select {
         width: 100%;
       }
-      
+
       .chip-multi-select {
         display: flex;
         flex-direction: column;
         gap: 12px;
       }
-      
+
       .chips-display {
         display: flex;
         flex-wrap: wrap;
@@ -82,7 +85,7 @@
         border-radius: 4px;
         background-color: #fafafa;
       }
-      
+
       .chip {
         display: inline-flex;
         align-items: center;
@@ -92,7 +95,7 @@
         font-size: 14px;
         gap: 4px;
       }
-      
+
       .chip-remove {
         cursor: pointer;
         font-size: 18px;
@@ -101,15 +104,15 @@
         color: #666;
         line-height: 1;
       }
-      
+
       .chip-remove:hover {
         color: #d32f2f;
       }
-      
+
       .chip-select {
         width: 100%;
       }
-      
+
       .form-actions {
         display: flex;
         justify-content: flex-end;
@@ -118,13 +121,13 @@
         padding-top: 24px;
         border-top: 1px solid #e0e0e0;
       }
-      
+
       .error-message {
         color: #d32f2f;
         font-size: 14px;
         margin-top: 8px;
       }
-      
+
       .success-message {
         color: #388e3c;
         font-size: 14px;
@@ -137,13 +140,13 @@
       <div class="form-title"><?= isEdit ? 'Edit' : 'Add' ?> Entry</div>
       <form id="entryForm">
         <div id="formFields"></div>
-        
+
         <div class="form-actions">
           <md-text-button type="button" onclick="closeDialog()">Cancel</md-text-button>
           <md-filled-button type="submit">Save</md-filled-button>
         </div>
       </form>
-      
+
       <div id="messageContainer"></div>
     </div>
 
@@ -160,56 +163,56 @@
       // Initialize form fields
       function initializeForm() {
         const formFields = document.getElementById('formFields');
-        
+
         entryMeta.columns.forEach(column => {
           const value = entryData[column] || '';
           const fieldDef = entryMeta.fields?.[column];
-          
+
           const fieldDiv = document.createElement('div');
           fieldDiv.className = 'form-field';
-          
+
           const label = document.createElement('label');
           label.textContent = fieldDef?.description || formatColumnName(column);
           if (fieldDef?.required) {
             label.textContent += ' *';
           }
           fieldDiv.appendChild(label);
-          
+
           // Use JSON Schema field definition if available, otherwise fall back to heuristics
           const fieldType = fieldDef ? getFieldTypeFromSchema(fieldDef) : getFieldType(column, value);
-          
+
           // Check if this is a Link or LinkArray field
           if (fieldDef?.['@type'] === 'Link' || fieldDef?.['@type'] === 'LinkArray') {
             const isLinkArray = fieldDef['@type'] === 'LinkArray';
             const options = linkOptions[column] || [];
-            
+
             if (isLinkArray) {
               // Multi-select for LinkArray fields using chips
               const separator = fieldDef.separator || ',';
               const currentValues = value ? String(value).split(separator).map(v => v.trim()) : [];
-              
+
               // Create container for chip-based multi-select
               const chipContainer = document.createElement('div');
               chipContainer.className = 'chip-multi-select';
               chipContainer.setAttribute('data-name', column);
               chipContainer.setAttribute('data-separator', separator);
-              
+
               // Create chips display area
               const chipsDisplay = document.createElement('div');
               chipsDisplay.className = 'chips-display';
               chipContainer.appendChild(chipsDisplay);
-              
+
               // Create dropdown select for adding items
               const select = document.createElement('md-filled-select');
               select.className = 'chip-select';
               select.setAttribute('label', 'Add item...');
-              
+
               // Add empty option
               const emptyOption = document.createElement('md-select-option');
               emptyOption.value = '';
               emptyOption.textContent = '-- Select to add --';
               select.appendChild(emptyOption);
-              
+
               // Add options from linked entries
               options.forEach(option => {
                 const selectOption = document.createElement('md-select-option');
@@ -217,25 +220,25 @@
                 selectOption.textContent = option;
                 select.appendChild(selectOption);
               });
-              
+
               chipContainer.appendChild(select);
-              
+
               // Hidden input to store selected values
               const hiddenInput = document.createElement('input');
               hiddenInput.type = 'hidden';
               hiddenInput.name = column;
               hiddenInput.value = currentValues.join(separator);
               chipContainer.appendChild(hiddenInput);
-              
+
               fieldDiv.appendChild(chipContainer);
-              
+
               // Initialize chips from current values
               currentValues.forEach(val => {
                 if (val) {
                   addChip(chipsDisplay, val, hiddenInput, separator);
                 }
               });
-              
+
               // Handle selection changes
               select.addEventListener('change', function() {
                 const selectedValue = this.value;
@@ -256,7 +259,7 @@
               if (fieldDef?.required) {
                 select.setAttribute('required', 'true');
               }
-              
+
               // Add empty option if not required
               if (!fieldDef?.required) {
                 const emptyOption = document.createElement('md-select-option');
@@ -264,7 +267,7 @@
                 emptyOption.textContent = '-- Select --';
                 select.appendChild(emptyOption);
               }
-              
+
               // Add options from linked entries
               options.forEach(option => {
                 const selectOption = document.createElement('md-select-option');
@@ -275,7 +278,7 @@
                 }
                 select.appendChild(selectOption);
               });
-              
+
               fieldDiv.appendChild(select);
             }
           } else if (fieldType === 'select' && fieldDef?.enum) {
@@ -285,7 +288,7 @@
             if (fieldDef?.required) {
               select.setAttribute('required', 'true');
             }
-            
+
             // Add options
             fieldDef.enum.forEach(optionValue => {
               const option = document.createElement('md-select-option');
@@ -296,7 +299,7 @@
               }
               select.appendChild(option);
             });
-            
+
             fieldDiv.appendChild(select);
           } else if (fieldType === 'date' || fieldType === 'datetime' || fieldType === 'time') {
             // Date/time fields
@@ -375,22 +378,22 @@
             }
             fieldDiv.appendChild(textField);
           }
-          
+
           formFields.appendChild(fieldDiv);
         });
       }
-      
+
       // Function to add a chip to the display
       function addChip(chipsDisplay, value, hiddenInput, separator) {
         const chip = document.createElement('div');
         chip.className = 'chip';
         chip.setAttribute('data-value', value);
-        
+
         // Add text span for the value
         const textSpan = document.createElement('span');
         textSpan.textContent = value;
         chip.appendChild(textSpan);
-        
+
         // Add remove button
         const removeBtn = document.createElement('span');
         removeBtn.className = 'chip-remove';
@@ -401,21 +404,21 @@
           // Update hidden input
           updateHiddenInput(chipsDisplay, hiddenInput, separator);
         };
-        
+
         chip.appendChild(removeBtn);
         chipsDisplay.appendChild(chip);
-        
+
         // Update hidden input
         updateHiddenInput(chipsDisplay, hiddenInput, separator);
       }
-      
+
       // Function to update hidden input value from chips
       function updateHiddenInput(chipsDisplay, hiddenInput, separator) {
         const chips = chipsDisplay.querySelectorAll('.chip');
         const values = Array.from(chips).map(chip => chip.getAttribute('data-value'));
         hiddenInput.value = values.join(separator);
       }
-      
+
       // Format column name for display
       function formatColumnName(column) {
         return column
@@ -423,14 +426,14 @@
           .replace(/^./, str => str.toUpperCase())
           .trim();
       }
-      
+
       // Get field type from JSON Schema field definition
       function getFieldTypeFromSchema(fieldDef) {
         // Check for enum first
         if (fieldDef.enum && fieldDef.enum.length > 0) {
           return 'select';
         }
-        
+
         // Check format
         if (fieldDef.format) {
           if (fieldDef.format === 'email') return 'email';
@@ -439,46 +442,46 @@
           if (fieldDef.format === 'time') return 'time';
           if (fieldDef.format === 'date-time') return 'datetime';
         }
-        
+
         // Check type - handle both single type and array of types
         let type = fieldDef.type;
         if (Array.isArray(type)) {
           // For array types, prioritize non-null types
           type = type.find(t => t !== 'null') || type[0];
         }
-        
+
         if (type === 'boolean') return 'boolean';
         if (type === 'integer') return 'integer';
         if (type === 'number') return 'number';
-        
+
         return 'text';
       }
-      
+
       // Determine field type based on column name or value (fallback for legacy metadata)
       function getFieldType(column, value) {
         const lowerColumn = column.toLowerCase();
-        
+
         if (lowerColumn.includes('date') || lowerColumn.includes('time')) {
           return 'date';
         }
-        
-        if (lowerColumn.includes('amount') || lowerColumn.includes('price') || 
+
+        if (lowerColumn.includes('amount') || lowerColumn.includes('price') ||
             lowerColumn.includes('quantity') || lowerColumn.includes('count')) {
           return 'number';
         }
-        
-        if (typeof value === 'boolean' || lowerColumn.includes('is') || 
+
+        if (typeof value === 'boolean' || lowerColumn.includes('is') ||
             lowerColumn.includes('has') || lowerColumn.includes('active')) {
           return 'boolean';
         }
-        
+
         return 'text';
       }
-      
+
       // Format date value for input
       function formatDateValue(value, fieldType) {
         if (!value) return '';
-        
+
         if (value instanceof Date || typeof value === 'object') {
           const date = new Date(value);
           if (!isNaN(date.getTime())) {
@@ -494,7 +497,7 @@
             }
           }
         }
-        
+
         // Try to parse as ISO string
         if (typeof value === 'string') {
           const date = new Date(value);
@@ -508,17 +511,17 @@
             }
           }
         }
-        
+
         return value;
       }
-      
+
       // Handle form submission
       document.getElementById('entryForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const formData = {};
         const formElements = this.elements;
-        
+
         // Collect all form elements including hidden inputs
         for (let i = 0; i < formElements.length; i++) {
           const element = formElements[i];
@@ -532,17 +535,17 @@
             }
           }
         }
-        
+
         // Show loading state
         showMessage('Saving...', 'info');
-        
+
         // Call server-side function to save
         google.script.run
           .withSuccessHandler(onSaveSuccess)
           .withFailureHandler(onSaveError)
           .saveEntryFromDialog(entryTypeName, formData, isEdit, rowNumber);
       });
-      
+
       function onSaveSuccess(result) {
         if (result.success) {
           showMessage(result.message || 'Entry saved successfully', 'success');
@@ -553,20 +556,20 @@
           showMessage(result.message || 'Failed to save entry', 'error');
         }
       }
-      
+
       function onSaveError(error) {
         showMessage('Error: ' + error.message, 'error');
       }
-      
+
       function showMessage(message, type) {
         const container = document.getElementById('messageContainer');
         container.innerHTML = `<div class="${type}-message">${message}</div>`;
       }
-      
+
       function closeDialog() {
         google.script.host.close();
       }
-      
+
       // Initialize form on load
       window.addEventListener('load', initializeForm);
     </script>

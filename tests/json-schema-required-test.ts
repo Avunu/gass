@@ -1,11 +1,11 @@
 /**
  * Test to verify JSON Schema metadata is required for all Entry classes
- * 
+ *
  * Note: This test validates that the JSON Schema approach is enforced.
  * We test the metadata loading and validation logic directly.
  */
 
-import { MetadataLoader } from "../base/MetadataLoader";
+import * as MetadataLoader from "../base/MetadataLoader";
 
 console.log("=== JSON Schema Required Test ===\n");
 
@@ -18,9 +18,9 @@ try {
     columns: ["id", "name"],
     // Missing fields!
   };
-  
+
   const loaded = MetadataLoader.loadFromObject(metadataWithoutFields);
-  
+
   // Check that this metadata has no fields
   if (!loaded.fields || Object.keys(loaded.fields).length === 0) {
     console.log("✓ Metadata without fields loads but has no field definitions");
@@ -42,9 +42,9 @@ try {
     columns: ["id", "name"],
     fields: {}, // Empty fields object
   };
-  
+
   const loaded = MetadataLoader.loadFromObject(metadataWithEmptyFields);
-  
+
   if (Object.keys(loaded.fields || {}).length === 0) {
     console.log("✓ Metadata with empty fields object loads but has no field definitions");
     console.log("  - This would be rejected by Entry.loadMetadata()");
@@ -87,29 +87,31 @@ try {
   console.log(`  - Sheet ID: ${loaded.sheetId}`);
   console.log(`  - Columns: ${loaded.columns.join(", ")}`);
   console.log(`  - Fields defined: ${Object.keys(loaded.fields || {}).length}`);
-  console.log(`  - Default sort: ${loaded.defaultSort?.[0].column} (${loaded.defaultSort?.[0].ascending ? "ASC" : "DESC"})`);
-  
+  console.log(
+    `  - Default sort: ${loaded.defaultSort?.[0].column} (${loaded.defaultSort?.[0].ascending ? "ASC" : "DESC"})`,
+  );
+
   // Verify validation works
   const validData = {
     id: "user_123",
     name: "John Doe",
     email: "john.doe@example.com",
   };
-  
+
   const validationResult = MetadataLoader.validateData(validData, loaded);
   if (validationResult.isValid) {
     console.log("✓ JSON Schema validation accepts valid data");
   } else {
     console.error("✗ Valid data was rejected:", validationResult.errors);
   }
-  
+
   // Test invalid data
   const invalidData = {
     id: "user_123",
     name: "John Doe",
     email: "not-an-email",
   };
-  
+
   const invalidResult = MetadataLoader.validateData(invalidData, loaded);
   if (!invalidResult.isValid) {
     console.log("✓ JSON Schema validation rejects invalid data");
@@ -117,14 +119,14 @@ try {
   } else {
     console.error("✗ Invalid data was accepted");
   }
-  
+
   // Test missing required field
   const missingData = {
     id: "user_123",
     name: "John Doe",
     // email is missing
   };
-  
+
   const missingResult = MetadataLoader.validateData(missingData, loaded);
   if (!missingResult.isValid) {
     console.log("✓ JSON Schema validation catches missing required fields");
@@ -161,7 +163,7 @@ const COMPLEX_META = {
 
 try {
   const loaded = MetadataLoader.loadFromObject(COMPLEX_META);
-  
+
   // Test enum validation
   const invalidEnum = {
     id: "1",
@@ -169,14 +171,14 @@ try {
     phone: "555-123-4567",
     description: "This is a valid description that is long enough.",
   };
-  
+
   const enumResult = MetadataLoader.validateData(invalidEnum, loaded);
-  if (!enumResult.isValid && enumResult.errors.some(e => e.includes("status"))) {
+  if (!enumResult.isValid && enumResult.errors.some((e) => e.includes("status"))) {
     console.log("✓ Enum validation works correctly");
   } else {
     console.error("✗ Enum validation failed");
   }
-  
+
   // Test pattern validation
   const invalidPattern = {
     id: "1",
@@ -184,14 +186,14 @@ try {
     phone: "not-a-phone", // Doesn't match pattern
     description: "This is a valid description that is long enough.",
   };
-  
+
   const patternResult = MetadataLoader.validateData(invalidPattern, loaded);
-  if (!patternResult.isValid && patternResult.errors.some(e => e.includes("phone"))) {
+  if (!patternResult.isValid && patternResult.errors.some((e) => e.includes("phone"))) {
     console.log("✓ Pattern validation works correctly");
   } else {
     console.error("✗ Pattern validation failed");
   }
-  
+
   // Test length validation
   const invalidLength = {
     id: "1",
@@ -199,9 +201,9 @@ try {
     phone: "555-123-4567",
     description: "Too short", // Less than minLength
   };
-  
+
   const lengthResult = MetadataLoader.validateData(invalidLength, loaded);
-  if (!lengthResult.isValid && lengthResult.errors.some(e => e.includes("description"))) {
+  if (!lengthResult.isValid && lengthResult.errors.some((e) => e.includes("description"))) {
     console.log("✓ Length validation works correctly");
   } else {
     console.error("✗ Length validation failed");
@@ -213,4 +215,3 @@ try {
 console.log("\n=== JSON Schema enforcement verified ===");
 console.log("All Entry classes must use loadMetadata() with field definitions.");
 console.log("Legacy IEntryMeta direct assignment is no longer supported.");
-

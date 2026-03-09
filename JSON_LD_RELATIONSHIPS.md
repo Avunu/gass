@@ -2,7 +2,9 @@
 
 ## Overview
 
-GASS now supports JSON-LD (JSON Linked Data) annotations in metadata files to define semantic relationships between Entry types. This provides a standardized, machine-readable way to describe how entries are linked together.
+GASS now supports JSON-LD (JSON Linked Data) annotations in metadata files to define semantic relationships
+between Entry types. This provides a standardized, machine-readable way to describe how entries are linked
+together.
 
 ## Benefits
 
@@ -71,6 +73,7 @@ For array links (comma-separated), use `@type: "LinkArray"`:
 ### `@type`
 
 Specifies the relationship type:
+
 - `"Link"`: Single relationship (one-to-one or many-to-one)
 - `"LinkArray"`: Array relationship (one-to-many or many-to-many)
 
@@ -79,6 +82,7 @@ Specifies the relationship type:
 The target Entry class name. This should match the class name of the related Entry type.
 
 **Examples:**
+
 - `"@id": "User"` - Links to User Entry
 - `"@id": "Service"` - Links to Service Entry
 - `"@id": "Region"` - Links to Region Entry
@@ -88,6 +92,7 @@ The target Entry class name. This should match the class name of the related Ent
 The field name on the target Entry to match against. Defaults to `"name"` if not specified.
 
 **Examples:**
+
 - `"targetField": "name"` - Match by name field (default)
 - `"targetField": "id"` - Match by id field
 - `"targetField": "email"` - Match by email field
@@ -97,6 +102,7 @@ The field name on the target Entry to match against. Defaults to `"name"` if not
 For `LinkArray` types only. Specifies the separator character for array values. Defaults to `","`.
 
 **Examples:**
+
 - `"separator": ","` - Comma-separated (default)
 - `"separator": ";"` - Semicolon-separated
 - `"separator": "|"` - Pipe-separated
@@ -170,13 +176,13 @@ export class BOM extends Entry {
   // These decorators match the JSON-LD metadata
   @link(() => Service)
   public service: Link<Service> = "" as Link<Service>;
-  
+
   @link(() => Size)
   public size: Link<Size> = "" as Link<Size>;
-  
+
   @link(() => Expense)
   public expense: Link<Expense> = "" as Link<Expense>;
-  
+
   public qty: number = 0;
 
   getCacheKey(): string {
@@ -193,7 +199,8 @@ export class BOM extends Entry {
 
 The framework automatically validates that:
 
-1. **Decorator matches metadata**: If you use `@link` decorator, the JSON-LD metadata should specify `"@type": "Link"`
+1. **Decorator matches metadata**: If you use `@link` decorator, the JSON-LD metadata should specify
+   `"@type": "Link"`
 2. **Array types match**: If you use `@linkArray`, the metadata should specify `"@type": "LinkArray"`
 3. **Completeness**: Fields with JSON-LD annotations should have corresponding decorators
 
@@ -253,7 +260,7 @@ Use relationship metadata to optimize data loading:
 
 ```typescript
 // Future: Eager loading based on JSON-LD metadata
-const boms = await BOM.getWithRelations(['service', 'expense']);
+const boms = await BOM.getWithRelations(["service", "expense"]);
 // Automatically fetches related Service and Expense entries
 ```
 

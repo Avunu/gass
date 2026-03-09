@@ -2,7 +2,8 @@
 
 ## Overview
 
-GASS now supports defining Entry metadata using JSON Schema, providing standardized validation, better tooling support, and future extensibility for features like JSONForms integration.
+GASS now supports defining Entry metadata using JSON Schema, providing standardized validation, better tooling
+support, and future extensibility for features like JSONForms integration.
 
 ## Benefits
 
@@ -82,12 +83,12 @@ export class MyEntity extends Entry {
 
 ### Core Properties
 
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `sheetId` | integer | Yes | Google Sheet identifier |
-| `columns` | array[string] | Yes | Column names in order (starting from column A) |
-| `defaultSort` | array | No | Default sorting configuration |
-| `fields` | object | No | Field validation definitions |
+| Property      | Type          | Required | Description                                    |
+| ------------- | ------------- | -------- | ---------------------------------------------- |
+| `sheetId`     | integer       | Yes      | Google Sheet identifier                        |
+| `columns`     | array[string] | Yes      | Column names in order (starting from column A) |
+| `defaultSort` | array         | No       | Default sorting configuration                  |
+| `fields`      | object        | No       | Field validation definitions                   |
 
 ### Field Validation Properties
 
@@ -95,27 +96,27 @@ The `fields` object defines validation rules for each column using JSON Schema:
 
 #### Common Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `type` | string | Data type: "string", "number", "integer", "boolean", "array", "object" |
-| `required` | boolean | Whether field is required |
-| `description` | string | Human-readable field description |
-| `default` | any | Default value |
-| `enum` | array | Allowed values |
+| Property      | Type    | Description                                                            |
+| ------------- | ------- | ---------------------------------------------------------------------- |
+| `type`        | string  | Data type: "string", "number", "integer", "boolean", "array", "object" |
+| `required`    | boolean | Whether field is required                                              |
+| `description` | string  | Human-readable field description                                       |
+| `default`     | any     | Default value                                                          |
+| `enum`        | array   | Allowed values                                                         |
 
 #### String Validation
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `minLength` | integer | Minimum string length |
-| `maxLength` | integer | Maximum string length |
-| `pattern` | string | Regular expression pattern |
-| `format` | string | Format: "email", "date", "date-time", "uri", etc. |
+| Property    | Type    | Description                                       |
+| ----------- | ------- | ------------------------------------------------- |
+| `minLength` | integer | Minimum string length                             |
+| `maxLength` | integer | Maximum string length                             |
+| `pattern`   | string  | Regular expression pattern                        |
+| `format`    | string  | Format: "email", "date", "date-time", "uri", etc. |
 
 #### Number Validation
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property  | Type   | Description               |
+| --------- | ------ | ------------------------- |
 | `minimum` | number | Minimum value (inclusive) |
 | `maximum` | number | Maximum value (inclusive) |
 
@@ -239,7 +240,8 @@ The following formats are supported through `ajv-formats`:
 
 ## Migration from Older Versions
 
-If you're migrating from an older version of GASS that used the traditional IEntryMeta approach, you must now use JSON Schema metadata.
+If you're migrating from an older version of GASS that used the traditional IEntryMeta approach, you must now
+use JSON Schema metadata.
 
 ### Old Approach (No Longer Supported)
 
@@ -255,7 +257,7 @@ const MY_ENTITY_META: IEntryMeta = {
 
 export class MyEntity extends Entry {
   static override _meta = MY_ENTITY_META;
-  
+
   validate(): ValidationResult {
     const errors: string[] = [];
     if (!this.name) errors.push("Name is required");
@@ -271,6 +273,7 @@ export class MyEntity extends Entry {
 ### Current Approach (Required)
 
 **MyEntity.meta.json:**
+
 ```json
 {
   "$schema": "../types/entry-meta.schema.json",
@@ -292,6 +295,7 @@ export class MyEntity extends Entry {
 ```
 
 **MyEntity.ts:**
+
 ```typescript
 import metadata from "./MyEntity.meta.json";
 
@@ -299,7 +303,7 @@ export class MyEntity extends Entry {
   static {
     this.loadMetadata(metadata);
   }
-  
+
   validate(): ValidationResult {
     // JSON Schema handles required and email format
     // Only add custom business logic here
@@ -317,21 +321,21 @@ See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed migration instructio
 ```typescript
 validate(): ValidationResult {
   const errors: string[] = [];
-  
+
   // JSON Schema already validated:
   // - Required fields
   // - Email format
   // - Data types
-  
+
   // Add custom business logic:
   if (this.email && this.email.endsWith("@competitor.com")) {
     errors.push("Competitor emails not allowed");
   }
-  
+
   if (this.status === "active" && !this.verifiedAt) {
     errors.push("Active users must be verified");
   }
-  
+
   return { isValid: errors.length === 0, errors };
 }
 ```

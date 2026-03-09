@@ -39,7 +39,7 @@ export class User extends Entry {
    * - Status enum validation
    * - Name length constraints
    * - DateTime format for createdAt
-   * 
+   *
    * This method can add additional business logic validation
    */
   validate(): ValidationResult {
