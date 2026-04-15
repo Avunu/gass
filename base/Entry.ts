@@ -6,7 +6,6 @@ import { ScheduledJob } from "../types/jobs";
 import { CacheManager } from "./cacheManager";
 import { MenuItem } from "./EntryRegistry";
 import type { IEntryMeta } from "./MetadataLoader";
-import { ValidateFunction } from "ajv";
 
 // Re-export IEntryMeta for convenience
 export type { IEntryMeta } from "./MetadataLoader";
@@ -19,7 +18,6 @@ export type ValidationResult = {
 export abstract class Entry {
   // JSON Schema-based metadata (required)
   protected static _metadata: IEntryMeta;
-  protected static _dataValidator: ValidateFunction | null = null;
   protected static _instances: Map<string, Entry> = new Map();
 
   // Derived _meta property for compatibility with existing code
@@ -57,18 +55,12 @@ export abstract class Entry {
     // Validate and load the metadata
     this._metadata = MetadataLoader.loadFromObject(metadata);
 
-    // Create data validator from field definitions
     // All entries MUST define fields in their metadata
     if (!this._metadata.fields || Object.keys(this._metadata.fields).length === 0) {
       throw new Error(
         `Entry class ${this.name} metadata must define "fields" with JSON Schema validation rules`,
       );
     }
-
-    this._dataValidator = MetadataLoader.createDataValidator(this._metadata);
-
-    // Note: Link decorator validation is deferred until first use
-    // because decorators may not be registered yet during static initialization
   }
 
   /**
@@ -118,7 +110,7 @@ export abstract class Entry {
    */
   protected static validateWithSchema(data: { [key: string]: any }): ValidationResult {
     // All entries must have JSON Schema validation
-    if (!this._metadata?.fields || this._dataValidator === null) {
+    if (!this._metadata?.fields) {
       throw new Error(`Entry class ${this.name} must have JSON Schema fields defined in metadata`);
     }
 
@@ -331,7 +323,6 @@ export abstract class Entry {
     const EntryClass = this.constructor as (new () => Entry) & {
       _meta: IEntryMeta;
       _metadata?: IEntryMeta;
-      _dataValidator?: ValidateFunction | null;
       validateWithSchema(data: { [key: string]: any }): ValidationResult;
       sort(orders: { column: number; ascending: boolean }[]): void;
     };

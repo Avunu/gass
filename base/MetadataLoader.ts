@@ -1,7 +1,3 @@
-import Ajv, { ValidateFunction } from "ajv";
-import addFormats from "ajv-formats";
-import entryMetaSchema from "../types/entry-meta.schema.json";
-
 /**
  * Entry metadata interface with field-level validation rules
  * and JSON-LD relationship definitions
@@ -18,57 +14,27 @@ export interface IEntryMeta {
     [key: string]: any;
   };
   fields?: {
-    [fieldName: string]: {
-      type?: "string" | "number" | "integer" | "boolean" | "null" | "array" | "object";
-      format?: string;
-      required?: boolean;
-      minLength?: number;
-      maxLength?: number;
-      minimum?: number;
-      maximum?: number;
-      pattern?: string;
-      enum?: any[];
-      default?: any;
-      description?: string;
-      // JSON-LD relationship properties
-      "@type"?: "Link" | "LinkArray";
-      "@id"?: string; // Target Entry class name
-      targetField?: string; // Field on target Entry to match against
-      separator?: string; // For LinkArray types
-    };
+    [fieldName: string]: FieldDef;
   };
 }
 
-/**
- * MetadataLoader handles loading and validating Entry metadata from JSON files
- */
-let ajv: Ajv;
-let metadataValidator: ValidateFunction;
-let initialized = false;
-
-/**
- * Initialize the AJV validator with the entry metadata schema
- */
-function init(): void {
-  if (initialized) return;
-
-  // Initialize AJV with strict mode and all errors
-  ajv = new Ajv({
-    allErrors: true,
-    verbose: true,
-    strict: true,
-    strictTypes: false,
-    allowUnionTypes: true,
-    validateFormats: true,
-  });
-
-  // Add format validators (email, date, uri, etc.)
-  addFormats(ajv);
-
-  // Compile the entry metadata schema
-  metadataValidator = ajv.compile(entryMetaSchema);
-
-  initialized = true;
+export interface FieldDef {
+  type?: "string" | "number" | "integer" | "boolean" | "null" | "array" | "object";
+  format?: string;
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+  pattern?: string;
+  enum?: any[];
+  default?: any;
+  description?: string;
+  // JSON-LD relationship properties
+  "@type"?: "Link" | "LinkArray";
+  "@id"?: string; // Target Entry class name
+  targetField?: string; // Field on target Entry to match against
+  separator?: string; // For LinkArray types
 }
 
 /**
@@ -78,22 +44,20 @@ function init(): void {
  * @throws Error if validation fails
  */
 export function loadFromObject(metadata: any): IEntryMeta {
-  init();
-
   // Strip $schema property if present (it's for IDE support, not part of metadata)
-  const { $schema: _$schema, ...metadataToValidate } = metadata;
+  const { $schema: _$schema, "@context": _context, ...rest } = metadata;
 
-  // Validate against schema
-  const valid = metadataValidator(metadataToValidate);
-  if (!valid) {
-    const errors = metadataValidator.errors?.map((err) => `${err.instancePath} ${err.message}`).join("; ");
-    throw new Error(`Metadata validation failed: ${errors}`);
+  if (typeof rest.sheetId !== "number") {
+    throw new Error("Metadata validation failed: sheetId must be a number");
+  }
+  if (!Array.isArray(rest.columns) || rest.columns.length === 0) {
+    throw new Error("Metadata validation failed: columns must be a non-empty array");
   }
 
-  // At this point, we know metadata conforms to IEntryMeta
-  const validatedMeta = metadataToValidate as IEntryMeta;
+  const validatedMeta: IEntryMeta = rest;
+  if (_context) validatedMeta["@context"] = _context;
 
-  // Additional validation: ensure defaultSort columns exist in columns array
+  // Ensure defaultSort columns exist in columns array
   if (validatedMeta.defaultSort) {
     for (const sort of validatedMeta.defaultSort) {
       if (!validatedMeta.columns.includes(sort.column)) {
@@ -105,86 +69,86 @@ export function loadFromObject(metadata: any): IEntryMeta {
   return validatedMeta;
 }
 
-// /**
-//  * Load metadata from a JSON file path (for Node.js/testing environments)
-//  * Note: This won't work in Apps Script environment, use loadFromObject instead
-//  * @param filePath - Path to the JSON metadata file
-//  * @returns Validated metadata
-//  */
-// static loadFromFile(filePath: string): IEntryMetaExtended {
-//   // This is for testing/development environments only
-//   // In Apps Script, metadata should be imported as modules
-//   try {
-//     const fs = require("fs");
-//     const content = fs.readFileSync(filePath, "utf-8");
-//     const metadata = JSON.parse(content);
-//     return loadFromObject(metadata);
-//   } catch (error) {
-//     throw new Error(`Failed to load metadata from file ${filePath}: ${error}`);
-//   }
-// }
-
 /**
- * Create a data validator for Entry instances based on field definitions
- * @param metadata - The entry metadata with field definitions
- * @returns AJV validate function for entry data
+ * Validate a single field value against its schema definition
  */
-export function createDataValidator(metadata: IEntryMeta): ValidateFunction | null {
-  init();
-
-  // If no field definitions, return null
-  if (!metadata.fields || Object.keys(metadata.fields).length === 0) {
-    return null;
-  }
-
-  // Build a JSON Schema for the entry data
-  const dataSchema: any = {
-    type: "object",
-    properties: {},
-    required: [],
-  };
-
-  // Build properties and required fields from metadata.fields
-  for (const [fieldName, fieldDef] of Object.entries(metadata.fields)) {
-    const property: any = {};
-
-    if (fieldDef.type) {
-      property.type = fieldDef.type;
-    }
-    if (fieldDef.format) {
-      property.format = fieldDef.format;
-    }
-    if (fieldDef.minLength !== undefined) {
-      property.minLength = fieldDef.minLength;
-    }
-    if (fieldDef.maxLength !== undefined) {
-      property.maxLength = fieldDef.maxLength;
-    }
-    if (fieldDef.minimum !== undefined) {
-      property.minimum = fieldDef.minimum;
-    }
-    if (fieldDef.maximum !== undefined) {
-      property.maximum = fieldDef.maximum;
-    }
-    if (fieldDef.pattern) {
-      property.pattern = fieldDef.pattern;
-    }
-    if (fieldDef.enum) {
-      property.enum = fieldDef.enum;
-    }
-    if (fieldDef.description) {
-      property.description = fieldDef.description;
-    }
-
-    dataSchema.properties[fieldName] = property;
-
-    if (fieldDef.required) {
-      dataSchema.required.push(fieldName);
+function validateField(
+  fieldName: string,
+  value: unknown,
+  def: FieldDef,
+  errors: string[],
+): void {
+  // Check type
+  if (def.type) {
+    const actualType = typeof value;
+    switch (def.type) {
+      case "string":
+        if (actualType !== "string") {
+          errors.push(`${fieldName}: must be string`);
+          return;
+        }
+        break;
+      case "number":
+        if (actualType !== "number" || Number.isNaN(value)) {
+          errors.push(`${fieldName}: must be number`);
+          return;
+        }
+        break;
+      case "integer":
+        if (actualType !== "number" || !Number.isInteger(value)) {
+          errors.push(`${fieldName}: must be integer`);
+          return;
+        }
+        break;
+      case "boolean":
+        if (actualType !== "boolean") {
+          errors.push(`${fieldName}: must be boolean`);
+          return;
+        }
+        break;
+      case "array":
+        if (!Array.isArray(value)) {
+          errors.push(`${fieldName}: must be array`);
+          return;
+        }
+        break;
+      case "object":
+        if (actualType !== "object" || value === null || Array.isArray(value)) {
+          errors.push(`${fieldName}: must be object`);
+          return;
+        }
+        break;
+      // "null" type is checked via required
     }
   }
 
-  // Compile and return the validator
-  return ajv.compile(dataSchema);
+  // String constraints
+  if (typeof value === "string") {
+    if (def.minLength !== undefined && value.length < def.minLength) {
+      errors.push(`${fieldName}: must NOT have fewer than ${def.minLength} characters`);
+    }
+    if (def.maxLength !== undefined && value.length > def.maxLength) {
+      errors.push(`${fieldName}: must NOT have more than ${def.maxLength} characters`);
+    }
+    if (def.pattern !== undefined && !new RegExp(def.pattern).test(value)) {
+      errors.push(`${fieldName}: must match pattern "${def.pattern}"`);
+    }
+  }
+
+  // Numeric constraints
+  if (typeof value === "number") {
+    if (def.minimum !== undefined && value < def.minimum) {
+      errors.push(`${fieldName}: must be >= ${def.minimum}`);
+    }
+    if (def.maximum !== undefined && value > def.maximum) {
+      errors.push(`${fieldName}: must be <= ${def.maximum}`);
+    }
+  }
+
+  // Enum constraint
+  if (def.enum !== undefined && !def.enum.includes(value)) {
+    errors.push(`${fieldName}: must be one of ${JSON.stringify(def.enum)}`);
+  }
 }
 
 /**
@@ -197,24 +161,28 @@ export function validateData(
   data: { [key: string]: any },
   metadata: IEntryMeta,
 ): { isValid: boolean; errors: string[] } {
-  const validator = createDataValidator(metadata);
-
-  // If no validator, no field-level validation is defined
-  if (!validator) {
+  if (!metadata.fields || Object.keys(metadata.fields).length === 0) {
     return { isValid: true, errors: [] };
   }
 
-  const valid = validator(data);
-  if (!valid) {
-    const errors =
-      validator.errors?.map((err) => {
-        const field = err.instancePath.replace(/^\//, "") || err.params?.missingProperty || "";
-        return `${field}: ${err.message}`;
-      }) || [];
-    return { isValid: false, errors };
+  const errors: string[] = [];
+
+  for (const [fieldName, def] of Object.entries(metadata.fields)) {
+    const value = data[fieldName];
+
+    // Check required
+    if (def.required && (value === undefined || value === null || value === "")) {
+      errors.push(`${fieldName}: is required`);
+      continue;
+    }
+
+    // Skip further checks if value is absent and not required
+    if (value === undefined || value === null || value === "") continue;
+
+    validateField(fieldName, value, def, errors);
   }
 
-  return { isValid: true, errors: [] };
+  return errors.length > 0 ? { isValid: false, errors } : { isValid: true, errors: [] };
 }
 
 /**
