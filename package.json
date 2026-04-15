@@ -10,7 +10,10 @@
     "url": "git+https://github.com/Avunu/gass.git"
   },
   "type": "module",
-  "main": "index.js",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
   "scripts": {
     "build": "rolldown --config rollup.config.js",
     "test": "npm run test:metadata && npm run test:required",
@@ -20,10 +23,10 @@
   },
   "devDependencies": {
     "@types/google-apps-script": "^2",
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.6.0",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
-    "rolldown": "^1.0.0-rc.5",
+    "rolldown": "^1.0.0-rc.15",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0"
   }

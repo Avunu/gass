@@ -1,19 +1,29 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
-    "module": "ES2022",
-    "lib": ["ES2022"],
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": [
+      "ES2022"
+    ],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "resolveJsonModule": true,
-    "types": ["google-apps-script", "node"]
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2021",
+    "types": [
+      "google-apps-script",
+      "node"
+    ]
   },
-  "include": ["**/*.ts"],
-  "exclude": ["examples", "node_modules"]
+  "exclude": [
+    "examples",
+    "node_modules"
+  ],
+  "include": [
+    "**/*.ts"
+  ]
 }

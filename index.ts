@@ -1,14 +1,11 @@
 // Core base classes and shared interfaces
-export { Entry, ValidationResult } from "./base/Entry";
-export type { IEntryMeta } from "./base/Entry";
+export { Entry } from "./base/Entry";
+export type { ValidationResult, IEntryMeta } from "./base/Entry";
 export * as EntryRegistry from "./base/EntryRegistry";
 export type { MenuItem, MenuHandler, GlobalMenuFunctions } from "./base/EntryRegistry";
 export * as SchedulerService from "./base/ScheduledJob";
 export { CacheManager } from "./base/cacheManager";
 export {
-  Link,
-  LinkArray,
-  LinkMetadata,
   link,
   linkArray,
   getLinkMetadata,
@@ -16,6 +13,7 @@ export {
   createLinkArrayProxy,
   IS_LINK_PROXY,
 } from "./base/Link";
+export type { Link, LinkArray, LinkMetadata } from "./base/Link";
 export * as MetadataLoader from "./base/MetadataLoader";
 
 // Core services
