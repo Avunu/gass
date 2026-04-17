@@ -19,7 +19,7 @@
     "test": "npm run test:metadata && npm run test:required",
     "test:metadata": "tsx tests/metadata-test.ts",
     "test:required": "tsx tests/json-schema-required-test.ts",
-    "upgrade": "npx npm-check-updates -u && npm install"
+    "upgrade": "npx npm-check-updates -u && npm install && npm audit fix"
   },
   "devDependencies": {
     "@types/google-apps-script": "^2",
