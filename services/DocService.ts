@@ -1,4 +1,4 @@
-import Request = GoogleAppsScript.Docs.Schema.Request;
+type Request = GoogleAppsScript.Docs.Schema.Request;
 
 // Template-specific value types
 type TemplateBasicValue = string | number | boolean | null;
