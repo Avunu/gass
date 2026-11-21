@@ -9,6 +9,26 @@ interface CalendarEventOptions {
   guestsCanSeeOtherGuests?: boolean;
 }
 
+/**
+ * Resolve the Calendar Advanced Service (Google Calendar API v3).
+ * The manifest's `userSymbol` may be "CalendarAdvanced" (preferred, avoids clashing with a
+ * `Calendar` entry type when bundled) or the default "Calendar"; look the symbol up at runtime
+ * rather than referencing a bare `Calendar` identifier.
+ */
+function getAdvancedCalendar(): GoogleAppsScript.Calendar {
+  const g = globalThis as unknown as {
+    CalendarAdvanced?: GoogleAppsScript.Calendar;
+    Calendar?: GoogleAppsScript.Calendar;
+  };
+  const service = g.CalendarAdvanced ?? g.Calendar;
+  if (!service?.Events) {
+    throw new Error(
+      "Calendar Advanced Service is not enabled. Please enable it in the Apps Script project settings.",
+    );
+  }
+  return service;
+}
+
 export class CalendarService {
   private calendar: GoogleAppsScript.Calendar.Calendar;
   private calendarId: string;
@@ -138,13 +158,7 @@ export class CalendarService {
     };
 
     try {
-      if (!Calendar || !Calendar.Events) {
-        throw new Error(
-          "Calendar Advanced Service is not enabled. Please enable it in the Apps Script project settings.",
-        );
-      }
-
-      const createdEvent = Calendar.Events.insert(event, this.calendarId, {
+      const createdEvent = getAdvancedCalendar().Events!.insert(event, this.calendarId, {
         sendUpdates: sendInvites ? "all" : "none",
       });
 
@@ -184,7 +198,65 @@ export class CalendarService {
     }
     if (options.location) event.setLocation(options.location);
     if (options.guests) {
-      options.guests.forEach((guest) => event.addGuest(guest));
+      this.syncGuests(eventId, event, options.guests);
+    }
+  }
+
+  /**
+   * Make the event's guest list match `guests`. Uses the Advanced Calendar API when available so
+   * newly added guests receive an invitation email (CalendarApp.addGuest does not send one).
+   */
+  private syncGuests(
+    eventId: string,
+    event: GoogleAppsScript.Calendar.CalendarEvent,
+    guests: string[],
+  ): void {
+    const wanted = [...new Set(guests.map((g) => g.trim().toLowerCase()).filter(Boolean))];
+    const guestList = event.getGuestList();
+    const current = guestList.map((g) => g.getEmail().toLowerCase());
+    const unchanged = wanted.length === current.length && wanted.every((email) => current.includes(email));
+    if (unchanged) return;
+
+    try {
+      const existing = new Map(
+        guestList.map((g) => [g.getEmail().toLowerCase(), g.getGuestStatus().toString()]),
+      );
+      getAdvancedCalendar().Events!.patch(
+        {
+          attendees: wanted.map((email) => {
+            // preserve existing RSVP state
+            const status = existing.get(email);
+            return status ? { email, responseStatus: CalendarService.toResponseStatus(status) } : { email };
+          }),
+        },
+        this.calendarId,
+        eventId.replace(/@google\.com$/, ""),
+        { sendUpdates: "all" },
+      );
+    } catch (error) {
+      console.warn(
+        `Advanced Calendar API guest sync failed for ${eventId}, falling back to CalendarApp:`,
+        error,
+      );
+      current.forEach((email) => {
+        if (!wanted.includes(email)) event.removeGuest(email);
+      });
+      wanted.forEach((email) => {
+        if (!current.includes(email)) event.addGuest(email);
+      });
+    }
+  }
+
+  private static toResponseStatus(guestStatus: string): string {
+    switch (guestStatus) {
+      case "YES":
+        return "accepted";
+      case "NO":
+        return "declined";
+      case "MAYBE":
+        return "tentative";
+      default:
+        return "needsAction";
     }
   }
 
@@ -203,12 +275,8 @@ export class CalendarService {
     recurringEventId: string,
   ): Promise<Array<{ eventId: string; start: Date; end: Date }>> {
     try {
-      if (!Calendar || !Calendar.Events) {
-        throw new Error("Calendar Advanced Service is not enabled.");
-      }
-
       // Get all instances of the recurring event
-      const instances = Calendar.Events.instances(this.calendarId, recurringEventId, {
+      const instances = getAdvancedCalendar().Events!.instances(this.calendarId, recurringEventId, {
         maxResults: 500,
         timeMin: new Date().toISOString(), // Only future/current instances
       });
@@ -250,12 +318,10 @@ export class CalendarService {
    */
   async deleteEventSeries(recurringEventId: string): Promise<number> {
     try {
-      if (!Calendar || !Calendar.Events) {
-        throw new Error("Calendar Advanced Service is not enabled.");
-      }
+      const events = getAdvancedCalendar().Events!;
 
       // Get all instances of the recurring event
-      const instances = Calendar.Events.instances(this.calendarId, recurringEventId, {
+      const instances = events.instances(this.calendarId, recurringEventId, {
         maxResults: 500,
       });
 
@@ -268,7 +334,7 @@ export class CalendarService {
       for (const instance of instances.items) {
         if (instance.id) {
           try {
-            Calendar.Events.remove(this.calendarId, instance.id);
+            events.remove(this.calendarId, instance.id);
             deletedCount++;
           } catch (error) {
             console.error(`Error deleting instance ${instance.id}:`, error);

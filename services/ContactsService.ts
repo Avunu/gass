@@ -1,5 +1,3 @@
-/// <reference path="../types/peopleService.d.ts" />
-
 interface PersonResponse extends GoogleAppsScript.PeopleAdvanced.Schema.Person {
   etag?: string;
 }
